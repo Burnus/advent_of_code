@@ -99,6 +99,17 @@ pub mod intcode_processor {
             self.input.push_back(input);
         }
 
+        /// Clears the input and sets it to `input`
+        pub fn reset_input(&mut self, input: RegVal) {
+            self.input.clear();
+            self.input.push_back(input);
+        }
+
+        /// Return the number of items left in the input queue
+        pub fn get_input_len(&self) -> usize {
+            self.input.len()
+        }
+
         /// Get the value from memory address `address`.
         ///
         /// ## Example
