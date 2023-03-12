@@ -1,0 +1,218 @@
+warning: unused variable: `challenge_input`
+   --> src/lib.rs:137:13
+    |
+137 |         let challenge_input = read_file("tests/challenge_input");
+    |             ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_challenge_input`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: `day24-air_duct_spelunking` (lib test) generated 1 warning
+    Finished test [unoptimized + debuginfo] target(s) in 0.00s
+     Running unittests src/lib.rs (target/debug/deps/day24_air_duct_spelunking-a142b0dc6356a23c)
+[src/lib.rs:27] &distances = {
+    (
+        (
+            9,
+            1,
+        ),
+        (
+            1,
+            3,
+        ),
+    ): 10,
+    (
+        (
+            9,
+            3,
+        ),
+        (
+            1,
+            3,
+        ),
+    ): 8,
+    (
+        (
+            9,
+            3,
+        ),
+        (
+            3,
+            1,
+        ),
+    ): 8,
+    (
+        (
+            1,
+            1,
+        ),
+        (
+            1,
+            3,
+        ),
+    ): 2,
+    (
+        (
+            3,
+            1,
+        ),
+        (
+            1,
+            3,
+        ),
+    ): 4,
+    (
+        (
+            1,
+            3,
+        ),
+        (
+            9,
+            3,
+        ),
+    ): 8,
+    (
+        (
+            1,
+            1,
+        ),
+        (
+            9,
+            1,
+        ),
+    ): 8,
+    (
+        (
+            9,
+            1,
+        ),
+        (
+            3,
+            1,
+        ),
+    ): 6,
+    (
+        (
+            3,
+            1,
+        ),
+        (
+            9,
+            3,
+        ),
+    ): 8,
+    (
+        (
+            1,
+            1,
+        ),
+        (
+            3,
+            1,
+        ),
+    ): 2,
+    (
+        (
+            3,
+            1,
+        ),
+        (
+            1,
+            1,
+        ),
+    ): 2,
+    (
+        (
+            1,
+            3,
+        ),
+        (
+            9,
+            1,
+        ),
+    ): 10,
+    (
+        (
+            9,
+            1,
+        ),
+        (
+            9,
+            3,
+        ),
+    ): 2,
+    (
+        (
+            9,
+            1,
+        ),
+        (
+            1,
+            1,
+        ),
+    ): 8,
+    (
+        (
+            1,
+            3,
+        ),
+        (
+            1,
+            1,
+        ),
+    ): 2,
+    (
+        (
+            9,
+            3,
+        ),
+        (
+            9,
+            1,
+        ),
+    ): 2,
+    (
+        (
+            3,
+            1,
+        ),
+        (
+            9,
+            1,
+        ),
+    ): 6,
+    (
+        (
+            1,
+            3,
+        ),
+        (
+            3,
+            1,
+        ),
+    ): 4,
+    (
+        (
+            1,
+            1,
+        ),
+        (
+            9,
+            3,
+        ),
+    ): 10,
+    (
+        (
+            9,
+            3,
+        ),
+        (
+            1,
+            1,
+        ),
+    ): 10,
+}
+thread 'tests::test_sample' panicked at 'assertion failed: `(left == right)`
+  left: `(18, 24)`,
+ right: `(14, 24)`', src/lib.rs:132:9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: test failed, to rerun pass `--lib`

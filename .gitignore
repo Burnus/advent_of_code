@@ -1,0 +1,7 @@
+.aocf
+day00
+**/target
+**/Cargo.lock
+**/dbg.log
+**/2
+**/.vimdid

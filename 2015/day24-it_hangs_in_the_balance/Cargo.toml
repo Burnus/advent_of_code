@@ -1,0 +1,4 @@
+[package]
+name = "day24-it_hangs_in_the_balance"
+version = "0.1.0"
+edition = "2021"

@@ -1,0 +1,21 @@
+   Compiling day23-unstable_diffusion v0.1.0 (/usr/home/burnus/advent_of_code_2022/day23-unstable_diffusion)
+error[E0308]: mismatched types
+   --> src/main.rs:130:46
+    |
+130 |         elfs.iter_mut().for_each(|elf| elf = &elf.consider(round, grid));
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^ types differ in mutability
+    |
+    = note: expected mutable reference `&mut Elf`
+                       found reference `&Elf`
+
+error[E0308]: mismatched types
+   --> src/main.rs:131:46
+    |
+131 |         elfs.iter_mut().for_each(|elf| elf = &elf.reposition(grid));
+    |                                              ^^^^^^^^^^^^^^^^^^^^^ types differ in mutability
+    |
+    = note: expected mutable reference `&mut Elf`
+                       found reference `&Elf`
+
+For more information about this error, try `rustc --explain E0308`.
+error: could not compile `day23-unstable_diffusion` due to 2 previous errors
