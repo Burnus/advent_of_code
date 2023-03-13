@@ -1,4 +1,25 @@
-use std::collections::{HashMap, VecDeque};
+use std::{collections::{HashMap, VecDeque}, fmt::Display, num::ParseIntError};
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseError {
+    ParseIntError(std::num::ParseIntError),
+    LineMalformed(String),
+}
+
+impl From<ParseIntError> for ParseError {
+    fn from(value: ParseIntError) -> Self {
+        Self::ParseIntError(value)
+    }
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ParseIntError(e) => write!(f, "Unable to parse into integer: {e}"),
+            Self::LineMalformed(v) => write!(f, "Line is malformed: {v}"),
+        }
+    }
+}
 
 type Chemical = usize;
 
@@ -13,7 +34,7 @@ struct Reaction {
 }
 
 impl Reaction {
-    fn from(line: &str, chemicals: &mut Vec<String>) -> Self {
+    fn try_from(line: &str, chemicals: &mut Vec<String>) -> Result<Self, ParseError> {
         let mut get_chemical = |name: &str| -> usize {
             if let Some(idx) = chemicals.iter().position(|c| c == &name.to_string()) {
                 idx
@@ -22,34 +43,37 @@ impl Reaction {
                 chemicals.len()-1
             }
         };
-        let (in_str, out_str) = line.split_once(" => ").unwrap();
-        let in_components: Vec<_> = in_str.split(&[' ', ',']).chain([""].into_iter()).collect();
-        assert_eq!(in_components.len()%3, 0);
-        let out_components: Vec<_> = out_str.split(' ').collect();
-        assert_eq!(out_components.len(), 2);
-        let output = Reagent {
-            id: get_chemical(out_components[1]),
-            amount: out_components[0].parse().unwrap(), 
-        };
+        if let Some((in_str, out_str)) = line.split_once(" => ") {
+            let in_components: Vec<_> = in_str.split(&[' ', ',']).chain([""].into_iter()).collect();
+            assert_eq!(in_components.len()%3, 0);
+            let out_components: Vec<_> = out_str.split(' ').collect();
+            assert_eq!(out_components.len(), 2);
+            let output = Reagent {
+                id: get_chemical(out_components[1]),
+                amount: out_components[0].parse()?, 
+            };
 
-        let input = in_components.chunks(3).map(|c| Reagent { id: get_chemical(c[1]), amount: c[0].parse::<usize>().unwrap(), }).collect();
+            let input = in_components.chunks(3).map(|c| Reagent { id: get_chemical(c[1]), amount: c[0].parse::<usize>().unwrap(), }).collect();
 
-        Self {
-            input,
-            output,
+            Ok(Self {
+                input,
+                output,
+            })
+        } else {
+            Err(ParseError::LineMalformed(line.to_string()))
         }
     }
 }
 
-pub fn run(input: &str) -> (usize, usize) {
+pub fn run(input: &str) -> Result<(usize, usize), ParseError> {
     let mut chemicals = Vec::new();
-    let reactions: Vec<_> = input.lines().map(|line| Reaction::from(line, &mut chemicals)).collect();
+    let reactions: Vec<_> = input.lines().map(|line| Reaction::try_from(line, &mut chemicals)).collect::<Result<Vec<_>, _>>()?;
     let fuel = chemicals.iter().position(|chem| chem == &String::from("FUEL")).unwrap();
     let ore =  chemicals.iter().position(|chem| chem == &String::from("ORE")).unwrap();
     // dbg!(&chemicals);
     let first = break_down(&reactions, fuel, ore, 1);
     let second = bisection_find(1_000_000_000_000/first, 10_000_000_000_000/first, &reactions, fuel, ore, 1_000_000_000_000);
-    (first, second)
+    Ok((first, second))
 }
 
 fn bisection_find(lower: usize, upper: usize, reactions: &[Reaction], target: usize, raw: usize, stock: usize) -> usize {
@@ -109,12 +133,12 @@ mod tests {
     #[test]
     fn test_sample() {
         let sample_input = read_file("tests/sample_input");
-        assert_eq!(run(&sample_input), (2210736, 460664));
+        assert_eq!(run(&sample_input), Ok((2210736, 460664)));
     }
 
     #[test]
     fn test_challenge() {
         let challenge_input = read_file("tests/challenge_input");
-        assert_eq!(run(&challenge_input), (1582325, 2267486));
+        assert_eq!(run(&challenge_input), Ok((1582325, 2267486)));
     }
 }

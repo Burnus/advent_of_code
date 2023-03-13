@@ -1,8 +1,9 @@
+use std::num::ParseIntError;
+
 use intcode_processor::intcode_processor::Cpu;
 
-pub fn run(input: &str) -> (isize, isize) {
-    let memory = input.split(',').map(|s| s.parse::<isize>().unwrap()).collect();
-    let cpu = Cpu::with_memory(memory);
+pub fn run(input: &str) -> Result<(isize, isize), ParseIntError> {
+    let cpu = Cpu::try_with_memory_from_str(input)?;
     let mut cpu_1 = cpu.clone();
     cpu_1.set(1, 12);
     cpu_1.set(2, 2);
@@ -21,7 +22,7 @@ pub fn run(input: &str) -> (isize, isize) {
             }
         }
     }
-    (first, second)
+    Ok((first, second))
 }
 
 #[cfg(test)]
@@ -36,12 +37,12 @@ mod tests {
     #[test]
     fn test_sample() {
         let sample_input = read_file("tests/sample_input");
-        assert_eq!(run(&sample_input), (3500, 213));
+        assert_eq!(run(&sample_input), Ok((3500, 213)));
     }
 
     #[test]
     fn test_challenge() {
         let challenge_input = read_file("tests/challenge_input");
-        assert_eq!(run(&challenge_input), (3760627, 7195));
+        assert_eq!(run(&challenge_input), Ok((3760627, 7195)));
     }
 }

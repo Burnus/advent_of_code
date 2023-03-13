@@ -1,4 +1,4 @@
-use std::{collections::HashMap, isize};
+use std::{collections::HashMap, isize, num::ParseIntError};
 use intcode_processor::intcode_processor::{Cpu, OutputState};
 
 enum Direction { Up, Left, Down, Right }
@@ -39,8 +39,8 @@ impl Direction {
     }
 }
 
-pub fn run(input: &str) -> (usize, String) {
-    let mut cpu_1 = Cpu::try_with_memory_from_str(input).unwrap();
+pub fn run(input: &str) -> Result<(usize, String), ParseIntError> {
+    let mut cpu_1 = Cpu::try_with_memory_from_str(input)?;
     let mut cpu_2 = cpu_1.clone();
     let mut panels_1 = HashMap::new();
     let mut panels_2 = HashMap::from([((0, 0), 1)]);
@@ -48,7 +48,7 @@ pub fn run(input: &str) -> (usize, String) {
     paint(&mut cpu_2, &mut panels_2);
     let first = panels_1.len();
     let second = print(&panels_2);
-    (first, second)
+    Ok((first, second))
 }
 
 fn paint(cpu: &mut Cpu, panels: &mut HashMap<(isize, isize), isize>) {
@@ -100,6 +100,6 @@ mod tests {
  #    #    #    #  # # #  #  # # #  #  #   
  #### #### #### ###  #  #  ##  #  # #  #   
 "#;
-        assert_eq!(run(&challenge_input), (2539, expected[1..].to_string()));
+        assert_eq!(run(&challenge_input), Ok((2539, expected[1..].to_string())));
     }
 }

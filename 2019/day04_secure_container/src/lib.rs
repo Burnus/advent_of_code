@@ -1,9 +1,11 @@
-pub fn run(input: &str) -> (usize, usize) {
-    let range: Vec<_> = input.split('-').map(|n| n.parse::<usize>().unwrap()).collect();
+use std::num::ParseIntError;
+
+pub fn run(input: &str) -> Result<(usize, usize), ParseIntError> {
+    let range: Vec<_> = input.split('-').map(|n| n.parse::<usize>()).collect::<Result<Vec<_>, _>>()?;
     let valid_1: Vec<_> = (range[0]..=range[1]).filter(is_valid_1).collect();
     let first = valid_1.len();
     let second = valid_1.into_iter().filter(is_valid_2).count();
-    (first, second)
+    Ok((first, second))
 }
 
 fn is_valid_1(password: &usize) -> bool {
@@ -55,12 +57,12 @@ mod tests {
     #[test]
     fn test_sample() {
         let sample_input = read_file("tests/sample_input");
-        assert_eq!(run(&sample_input), (36, 14));
+        assert_eq!(run(&sample_input), Ok((36, 14)));
     }
 
     #[test]
     fn test_challenge() {
         let challenge_input = read_file("tests/challenge_input");
-        assert_eq!(run(&challenge_input), (921, 603));
+        assert_eq!(run(&challenge_input), Ok((921, 603)));
     }
 }

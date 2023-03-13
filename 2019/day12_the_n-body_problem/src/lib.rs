@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{iter::Sum, ops::AddAssign, num::ParseIntError};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -37,6 +38,27 @@ impl Coordinate {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseMoonError {
+    ParseIntError(std::num::ParseIntError),
+    InvalidCoordinates(usize),
+}
+
+impl From<ParseIntError> for ParseMoonError {
+    fn from(value: ParseIntError) -> Self {
+        Self::ParseIntError(value)
+    }
+}
+
+impl fmt::Display for ParseMoonError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ParseIntError(v) => write!(f, "Error parsing coordinates: {v}"),
+            Self::InvalidCoordinates(n) => write!(f, "Error reading the coordinates list. It contains {n} components instead of 7."),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq)]
 struct Moon {
     position: Coordinate,
@@ -44,11 +66,13 @@ struct Moon {
 }
 
 impl TryFrom<&str> for Moon {
-    type Error = ParseIntError;
+    type Error = ParseMoonError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let components: Vec<_> = value.split(&['=', ',', '>']).collect();
-        assert_eq!(components.len(), 7);
+        if components.len() != 7 {
+            return Err(ParseMoonError::InvalidCoordinates(components.len()));
+        }
         let x = components[1].parse()?;
         let y = components[3].parse()?;
         let z = components[5].parse()?;
@@ -82,8 +106,9 @@ impl LunarSystem {
     }
 }
 
-pub fn run(input: &str) -> (usize, usize) {
-    let moons: Vec<Moon> = input.lines().map(Moon::try_from).collect::<Result<Vec<Moon>, _>>().unwrap();
+pub fn run(input: &str) -> Result<(usize, usize), ParseMoonError> {
+    let moons: Vec<Moon> = input.lines().map(Moon::try_from).collect::<Result<Vec<Moon>, _>>()?;
+    //.unwrap_or_else(|err| panic!("Error parsing input into moons: {err}"));
     let mut system = LunarSystem { moons: moons.to_vec(), };
     for _ in 0..1000 {
         system.step_motion();
@@ -114,7 +139,7 @@ pub fn run(input: &str) -> (usize, usize) {
         }
     }
     let second = scm(periods[0], scm(periods[1], periods[2]));
-    (first, second)
+    Ok((first, second))
 }
 
 fn scm(lhs: usize, rhs: usize) -> usize {
@@ -142,12 +167,12 @@ mod tests {
     #[test]
     fn test_sample() {
         let sample_input = read_file("tests/sample_input");
-        assert_eq!(run(&sample_input), (14645, 4686774924));
+        assert_eq!(run(&sample_input), Ok((14645, 4686774924)));
     }
 
     #[test]
     fn test_challenge() {
         let challenge_input = read_file("tests/challenge_input");
-        assert_eq!(run(&challenge_input), (7687, 334945516288044));
+        assert_eq!(run(&challenge_input), Ok((7687, 334945516288044)));
     }
 }

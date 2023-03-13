@@ -1,9 +1,9 @@
-use std::{sync::{mpsc, Arc}, thread, collections::VecDeque};
+use std::{sync::{mpsc, Arc}, thread, collections::VecDeque, num::ParseIntError};
 
 use intcode_processor::intcode_processor::{Cpu, OutputState};
 
-pub fn run(input: &str) -> (isize, isize) {
-    let template = Cpu::try_with_memory_from_str(input).unwrap();
+pub fn run(input: &str) -> Result<(isize, isize), ParseIntError> {
+    let template = Cpu::try_with_memory_from_str(input)?;
     let mut first = 0;
     for perm in get_permutations(&(0..5).collect()) {
         let mut output = 0;
@@ -82,7 +82,7 @@ pub fn run(input: &str) -> (isize, isize) {
         }
         second = second.max(*output.lock().unwrap());
     }
-    (first, second)
+    Ok((first, second))
 }
 
 fn get_permutations(numbers: &Vec<isize>) -> Vec<Vec<isize>> {
@@ -116,19 +116,19 @@ mod tests {
     fn test_sample() {
         let sample_input = read_file("tests/sample_input");
         // The second part of the output is not verified, but that's what my solution produces.
-        assert_eq!(run(&sample_input), (65210, 76543));
+        assert_eq!(run(&sample_input), Ok((65210, 76543)));
     }
 
     #[test]
     fn test_sample_2() {
         let sample_input = read_file("tests/sample_input_2");
         // The first part of the output is not verified, but that's what my solution produces.
-        assert_eq!(run(&sample_input), (0, 18216));
+        assert_eq!(run(&sample_input), Ok((0, 18216)));
     }
 
     #[test]
     fn test_challenge() {
         let challenge_input = read_file("tests/challenge_input");
-        assert_eq!(run(&challenge_input), (46248, 54163586));
+        assert_eq!(run(&challenge_input), Ok((46248, 54163586)));
     }
 }

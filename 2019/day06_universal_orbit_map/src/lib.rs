@@ -6,28 +6,31 @@ struct Orbit {
     center_id: usize,
 }
 
-pub fn run(input: &str) -> (usize, usize) {
-    let graph: Vec<_> = graph_from(input);
+pub fn run(input: &str) -> Result<(usize, usize), String> {
+    let graph: Vec<_> = graph_from(input)?;
     let first = count_direct_and_indirect_orbits(&graph);
     let common_orbit = get_common_center(&graph, 1, 2);
 
     let second = distance(&graph, common_orbit, 1) + distance(&graph, common_orbit, 2) - 2;
-    (first, second)
+    Ok((first, second))
 }
 
-fn graph_from(map: &str) -> Vec<Orbit> {
+fn graph_from(map: &str) -> Result<Vec<Orbit>, String> {
     let mut bodies = HashMap::from([("COM", 0), ("YOU", 1), ("SAN", 2)]);
     let mut graph: Vec<Orbit> = Vec::new();
     for line in map.lines() {
-        let (center, trabant) = line.split_once(')').unwrap();
-        let mut bodies_len = bodies.len();
-        let center_id = *bodies.entry(center).or_insert(bodies_len);
-        bodies_len = bodies.len();
-        let trabant_id = *bodies.entry(trabant).or_insert(bodies_len);
-        graph.push(Orbit { center_id, trabant_id } );
+        if let Some((center, trabant)) = line.split_once(')') {
+            let mut bodies_len = bodies.len();
+            let center_id = *bodies.entry(center).or_insert(bodies_len);
+            bodies_len = bodies.len();
+            let trabant_id = *bodies.entry(trabant).or_insert(bodies_len);
+            graph.push(Orbit { center_id, trabant_id } );
+        } else {
+            return Err(format!("Malformed input: '{line}' doesn't contain a ')'."));
+        }
     }
     graph.sort();
-    graph
+    Ok(graph)
 }
 
 fn count_direct_and_indirect_orbits(graph: &[Orbit]) -> usize {
@@ -94,12 +97,12 @@ mod tests {
     #[test]
     fn test_sample() {
         let sample_input = read_file("tests/sample_input");
-        assert_eq!(run(&sample_input), (54, 4));
+        assert_eq!(run(&sample_input), Ok((54, 4)));
     }
 
     #[test]
     fn test_challenge() {
         let challenge_input = read_file("tests/challenge_input");
-        assert_eq!(run(&challenge_input), (417916, 523));
+        assert_eq!(run(&challenge_input), Ok((417916, 523)));
     }
 }

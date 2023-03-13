@@ -1,7 +1,9 @@
+use std::num::ParseIntError;
+
 use intcode_processor::intcode_processor::{Cpu, OutputState};
 
-pub fn run(input: &str) -> (isize, isize) {
-    let mut cpu = Cpu::try_with_memory_from_str(input).unwrap();
+pub fn run(input: &str) -> Result<(isize, isize), ParseIntError> {
+    let mut cpu = Cpu::try_with_memory_from_str(input)?;
     let mut cpu_2 = cpu.clone();
     cpu.set_input(1);
     let first = match cpu.run() {
@@ -13,7 +15,7 @@ pub fn run(input: &str) -> (isize, isize) {
         OutputState::DiagnosticCode(d) => d,
         e => panic!("Unexpected return code: {e:?}"),
     };
-    (first, second)
+    Ok((first, second))
 }
 
 #[cfg(test)]
@@ -28,6 +30,6 @@ mod tests {
     #[test]
     fn test_challenge() {
         let challenge_input = read_file("tests/challenge_input");
-        assert_eq!(run(&challenge_input), (2316632620, 78869));
+        assert_eq!(run(&challenge_input), Ok((2316632620, 78869)));
     }
 }
