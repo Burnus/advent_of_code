@@ -165,6 +165,27 @@ Positions within the deck count from `0` at the top, then `1` for the card immed
 
 After shuffling your *factory order* deck of 10007 cards, *what is the position of card `2019`?*
 
-To begin, [get your puzzle input](22/input).
+Your puzzle answer was `8191`.
 
-Answer:
+\--- Part Two ---
+----------
+
+After a while, you realize your shuffling skill won't improve much more with merely a single deck of cards. You ask every 3D printer on the ship to make you some more cards while you check on the ship repairs. While reviewing the work the droids have finished so far, you think you see [Halley's Comet](https://en.wikipedia.org/wiki/Halley%27s_Comet) fly past!
+
+When you get back, you discover that the 3D printers have combined their power to create for you a single, giant, brand new, *factory order* deck of *`119315717514047` space cards*.
+
+Finally, a deck of cards worthy of shuffling!
+
+You decide to apply your complete shuffle process (your puzzle input) to the deck *`101741582076661` times in a row*.
+
+You'll need to be careful, though - one wrong move with this many cards and you might *overflow* your entire ship!
+
+After shuffling your new, giant, *factory order* deck that many times, *what number is on the card that ends up in position `2020`?*
+
+Your puzzle answer was `1644352419829`.
+
+Both parts of this puzzle are complete! They provide two gold stars: \*\*
+
+At this point, you should [return to your Advent calendar](/2019) and try another puzzle.
+
+If you still want to see it, you can [get your puzzle input](22/input).
