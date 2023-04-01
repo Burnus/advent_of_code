@@ -188,10 +188,11 @@ pub mod intcode_processor {
         /// cpu.run();
         /// assert_eq!(cpu.get(4), 42);
         /// ````
-        fn set_to_input(&mut self, dest: usize) {
-            let input = self.input.pop_front().expect("Input is empty");
-            self.set(dest, input);
+        fn set_to_input(&mut self/*, dest: usize*/) -> Option<isize> {
+            // let input = self.input.pop_front().expect("Input is empty");
+            // self.set(dest, input);
             self.instr_ptr += 2;
+            self.input.pop_front()
         }
 
         /// Return DiagnosticCode(val) if the next instruction is Halt (opcode 99) and Output(val) otherwise.
@@ -391,7 +392,13 @@ pub mod intcode_processor {
                 match instruction % 100 {
                     1 => self.add(params[0], params[1], params[2]),
                     2 => self.mul(params[0], params[1], params[2]),
-                    3 => self.set_to_input(params[0]),
+                    3 => { 
+                        if let Some(input) = self.set_to_input() {
+                            self.set(params[0], input);
+                        } else {
+                            return OutputState::Halt;
+                        }
+                    },
                     4 => return self.ret(params[0]),
                     5 => self.jnz(params[0], params[1]),
                     6 => self.jiz(params[0], params[1]),
