@@ -28,7 +28,8 @@ mod tests {
     #[ignore = "Requires manual inputs."]
     fn test_challenge() {
         let challenge_input = read_file("tests/challenge_input");
-        // Required items are Cake + Coin + Monolith + Mug. Should output 19013632 in the end.
+        // Required items are Cake + Coin + Monolith + Mug (shortest route: W, take cake, W, S, take monolith, N,
+        // W, S, E, E, E, take mug, W, W, W, N, E, E, E, S, take coin, S, W, N, N, N). Should output 19013632 in the end.
         assert_eq!(run(&challenge_input), Ok(()));
     }
 }

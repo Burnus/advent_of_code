@@ -9,6 +9,7 @@ fi
 cp -r ../day00/tests day${1}_${2}/
 cp ../day00/src/lib.rs day${1}_${2}/src/
 cd day${1}_${2}
+# echo 'intcode_processor = { path = "../common/intcode_processor" }' >> Cargo.toml
 aocf checkout $1
 aocf brief > challenge.txt
 aocf input > tests/challenge_input
