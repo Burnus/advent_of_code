@@ -100,12 +100,6 @@ impl Ferry {
             }
         }
         res
-        // (0..=2).map(|dx| (0..=2)
-        //             .filter(|&dy| !(dx==1 && dy==1) && 
-        //                           (1..=self.seats.len()).contains(&(y+dy)) && 
-        //                           (1..=self.seats[0].len()).contains(&(x+dx)) && 
-        //                           self.seats[y+dy-1][x+dx-1] == Seat::Occupied).count())
-        //             .sum()
     }
 
     fn round_v2(&mut self) -> bool {
@@ -162,6 +156,6 @@ mod tests {
     #[test]
     fn test_challenge() {
         let challenge_input = read_file("tests/challenge_input");
-        assert_eq!(run(&challenge_input), Ok((2441, 0)));
+        assert_eq!(run(&challenge_input), Ok((2441, 2190)));
     }
 }
