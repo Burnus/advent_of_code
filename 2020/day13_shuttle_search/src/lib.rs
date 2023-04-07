@@ -1,26 +1,4 @@
-use core::fmt::Display;
 use std::num::ParseIntError;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum ParseError {
-    ParseIntError(std::num::ParseIntError),
-    LineMalformed(String),
-}
-
-impl From<ParseIntError> for ParseError {
-    fn from(value: ParseIntError) -> Self {
-        Self::ParseIntError(value)
-    }
-}
-
-impl Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ParseIntError(e) => write!(f, "Unable to parse into integer: {e}"),
-            Self::LineMalformed(v) => write!(f, "Line is malformed: {v}"),
-        }
-    }
-}
 
 pub fn run(input: &str) -> Result<(usize, usize), ParseIntError> {
     let mut lines = input.lines();
