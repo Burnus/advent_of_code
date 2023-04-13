@@ -81,46 +81,66 @@ impl TryFrom<&str> for Rules {
 impl Rules {
     fn find_beginnings(&mut self) {
         let mut open_set = self.beginnings.iter().cloned().collect::<Vec<_>>();
+        let mut visited = self.beginnings.clone();
+        let mut beginnings = HashSet::new();
         while let Some(current) = open_set.pop() {
-            for (idx, rule) in current.iter().enumerate() {
-                if let Some(expansions) = self.reductions.get(rule) {
-                    for exp in expansions {
-                        let mut next = current[..idx].to_vec();
-                        next.append(&mut exp.to_vec());
-                        next.append(&mut current[idx+1..].to_vec());
-                        if !self.beginnings.contains(&next) {
-                            self.beginnings.insert(next.to_vec());
-                            open_set.push(next);
+            if current.iter().all(|n| self.char_replacements.iter().any(|(_c, i)| n == i)) {
+                beginnings.insert(current);
+            } else {
+                for (idx, rule) in current.iter().enumerate() {
+                    if let Some(expansions) = self.reductions.get(rule) {
+                        for exp in expansions {
+                            let mut next = current[..idx].to_vec();
+                            next.append(&mut exp.to_vec());
+                            next.append(&mut current[idx+1..].to_vec());
+                            if !visited.contains(&next) {
+                                visited.insert(next.to_vec());
+                                open_set.push(next);
+                            }
                         }
                     }
                 }
             }
         }
+        self.beginnings = beginnings;
     }
 
     fn find_ends(&mut self) {
         let mut open_set = self.ends.iter().cloned().collect::<Vec<_>>();
+        let mut visited = self.ends.clone();
+        let mut ends = HashSet::new();
         while let Some(current) = open_set.pop() {
-            for (idx, rule) in current.iter().enumerate() {
-                if let Some(expansions) = self.reductions.get(rule) {
-                    for exp in expansions {
-                        let mut next = current[..idx].to_vec();
-                        next.append(&mut exp.to_vec());
-                        next.append(&mut current[idx+1..].to_vec());
-                        if !self.ends.contains(&next) {
-                            self.ends.insert(next.to_vec());
-                            open_set.push(next);
+            if current.iter().all(|n| self.char_replacements.iter().any(|(_c, i)| n == i)) {
+                ends.insert(current);
+            } else {
+                for (idx, rule) in current.iter().enumerate() {
+                    if let Some(expansions) = self.reductions.get(rule) {
+                        for exp in expansions {
+                            let mut next = current[..idx].to_vec();
+                            next.append(&mut exp.to_vec());
+                            next.append(&mut current[idx+1..].to_vec());
+                            if !visited.contains(&next) {
+                                visited.insert(next.to_vec());
+                                open_set.push(next);
+                            }
                         }
                     }
                 }
             }
         }
+        self.ends = ends;
     }
 
+    // All valid messages have the format 42 42 31 for part 1, or 42+ 42{n} 31{n} for part 2 (where
+    // both n's are equal and greater than zero. Hence we can split the message up and check if it
+    // consists of 2 valid beginning parts (expansions of rule 42) and 1 valid ending (expansions
+    // of rule 31). For part 2 we allow additional beginnings and endings between those parts, so
+    // effectively any number of beginnings and endings (in that order), where the number of
+    // endings is at least 1 and the number of beginnings is at least 1 more than that.
     fn is_valid(&mut self, message: &str, part_2: bool) -> bool {
         let target: Vec<usize> = message.chars().map(|c| self.char_replacements.iter().find(|(rule, _idx)| rule == &c).unwrap().1).collect();
         let mut targets = Vec::new();
-        let beginnings: Vec<_> = self.beginnings.iter().filter(|b| b.iter().enumerate().all(|(idx, num)| target.len() > idx && target[idx] == *num)).collect();
+        let beginnings: Vec<_> = self.beginnings.iter().filter(|b| target.starts_with(b)).collect();
         if beginnings.is_empty() {
             return false;
         } else {
@@ -130,7 +150,7 @@ impl Rules {
         }
         let mut new_targets = Vec::new();
         for target in &targets {
-            let beginnings: Vec<_> = self.beginnings.iter().filter(|b| b.iter().enumerate().all(|(idx, num)| target.len() > idx && target[idx] == *num)).collect();
+            let beginnings: Vec<_> = self.beginnings.iter().filter(|b| target.starts_with(b)).collect();
             if beginnings.is_empty() {
                 return false;
             } else {
@@ -140,7 +160,7 @@ impl Rules {
             }
         }
         std::mem::swap(&mut targets, &mut new_targets);
-        let endings: Vec<_> = self.ends.iter().filter(|b| b.iter().rev().enumerate().all(|(idx, num)| target.len() > idx && target[target.len()-idx-1] == *num)).collect();
+        let endings: Vec<_> = self.ends.iter().filter(|e| target.ends_with(e)).collect();
         if endings.is_empty() {
             return false;
         } else {
@@ -157,13 +177,14 @@ impl Rules {
                 if current.is_empty() {
                     return true;
                 }
-                // Ensure we reduce the beginning and end the same number of times. We can reduce
+                // Ensure we reduce the beginning and end the same number of times to make sure we
+                // reduce the beginnings at least as often as the endings. We can still reduce
                 // the beginning even more in the else case.
-                let endings: Vec<_> = self.ends.iter().filter(|b| b.iter().rev().enumerate().all(|(idx, num)| current.len() > idx && current[current.len()-idx-1] == *num)).collect();
+                let endings: Vec<_> = self.ends.iter().filter(|e| current.ends_with(e)).collect();
                 if !endings.is_empty() {
                     for ending in endings {
                         let current = &current[..current.len()-ending.len()];
-                        let beginnings: Vec<_> = self.beginnings.iter().filter(|b| b.iter().enumerate().all(|(idx, num)| current.len() > idx && current[idx] == *num)).collect();
+                        let beginnings: Vec<_> = self.beginnings.iter().filter(|b| current.starts_with(b)).collect();
                         if !beginnings.is_empty() {
                             for beginning in beginnings {
                                 targets.push(current[beginning.len()..].to_vec());
@@ -179,7 +200,7 @@ impl Rules {
                     // breaks down into (bba) we will find a chain of valid beginnings, so we
                     // should pass, or (bbb) we don't, in which case we will fail by removing from
                     // the front.
-                    let beginnings: Vec<_> = self.beginnings.iter().filter(|b| b.iter().enumerate().all(|(idx, num)| current.len() > idx && current[idx] == *num)).collect();
+                    let beginnings: Vec<_> = self.beginnings.iter().filter(|b| current.starts_with(b)).collect();
                     if !beginnings.is_empty() {
                         for beginning in beginnings {
                             targets.push(current[beginning.len()..].to_vec());
