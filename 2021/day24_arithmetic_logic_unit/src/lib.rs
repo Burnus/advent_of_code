@@ -1,6 +1,6 @@
 pub fn run() -> (usize, usize) {
-    let first = next_valid_input(1_000_000, false);
-    let second = next_valid_input(111_110, true);
+    let first = next_valid_input(usize::MAX, false);
+    let second = next_valid_input(usize::MIN, true);
     (first, second)
 }
 
@@ -10,6 +10,8 @@ fn next_valid_input(previous: usize, ascending: bool) -> usize {
     } else {
         previous-1
     };
+    // We only need to guess 6 digits and can derive the rest from them, as shown below
+    curr = curr.clamp(111_111, 999_999);
     let mut digits: Vec<isize>;
     loop {
         digits = Vec::new();
@@ -29,28 +31,46 @@ fn next_valid_input(previous: usize, ascending: bool) -> usize {
                 rest /= 10;
             }
         }
-// [0]=[13]-7
-// [1]=[12]+3
-// [2]=[11]+5
-// [3]=9
-// [4]=1
-// [5]=[10]+1
-// [6]=[7]+6
-// [8]=[9]-3
-//
-// free: 13, 12, 11, 10, 9, 7
-// [13] = 0
-// [12] = 1
-// [11] = 2
-// [10] = 3
-// [9] = 4
-// [8] = 5
-// [7] = 6
+        // From carefully observing the input code, we know that half the digits can be linearly
+        // derived from the other half, using the following conversion (where [n] denotes the nth
+        // most significant digit of the number):
+        // [3]  = 9
+        // [4]  = 1
+        // [7]  = [6] - 6
+        // [9]  = [8] + 3
+        // [10] = [5] - 1
+        // [11] = [2] - 5
+        // [12] = [1] - 3
+        // [13] = [0] + 7
+        // 
+        // Since we haven't pushed [3] and [4] to the digits Vec yet, the indices of the digits to
+        // derive [7] to [10] from need to be reduced by 2 though. Also, we need to be careful to
+        // swap [7] and [8]. That won't change ordering though, because [7] is determined by [6],
+        // which already dominates [8].
 
-        let seven = digits.pop().unwrap();
-        let next = digits[4] - 3;
-        if (1..10).contains(&next) {
-            digits.push(next);
+        let other_digits = [
+            digits[4]-6,
+            digits[5]+3,
+            digits[3]-1,
+            digits[2]-5,
+            digits[1]-3,
+            digits[0]+7,
+        ];
+        if other_digits.iter().all(|d| (1..10).contains(d)) {
+            return 10_usize.pow(13) * digits[0] as usize +
+                   10_usize.pow(12) * digits[1] as usize +
+                   10_usize.pow(11) * digits[2] as usize +
+                   10_usize.pow(10) * 9 +
+                   10_usize.pow(9) +
+                   10_usize.pow(8) * digits[3] as usize +
+                   10_usize.pow(7) * digits[4] as usize +
+                   10_usize.pow(6) * other_digits[0] as usize +
+                   10_usize.pow(5) * digits[5] as usize +
+                   10_usize.pow(4) * other_digits[1] as usize +
+                   10_usize.pow(3) * other_digits[2] as usize +
+                   10_usize.pow(2) * other_digits[3] as usize +
+                   10              * other_digits[4] as usize +
+                                     other_digits[5] as usize;
         } else {
             if ascending {
                 curr += 1;
@@ -58,65 +78,8 @@ fn next_valid_input(previous: usize, ascending: bool) -> usize {
                 curr -= 1;
             }
             continue;
-        }
-        digits.push(seven);
-        let next = digits[6] + 6;
-        if (1..10).contains(&next) {
-            digits.push(next);
-        } else {
-            if ascending {
-                curr += 1;
-            } else {
-                curr -= 1;
-            }
-            continue;
-        }
-        let next = digits[3] + 1;
-        if (1..10).contains(&next) {
-            digits.push(next);
-        } else {
-            if ascending {
-                curr += 1;
-            } else {
-                curr -= 1;
-            }
-            continue;
-        }
-        digits.push(1);
-        digits.push(9);
-        let next = digits[2] + 5;
-        if (1..10).contains(&next) {
-            digits.push(next);
-        } else {
-            if ascending {
-                curr += 1;
-            } else {
-                curr -= 1;
-            }
-            continue;
-        }
-        let next = digits[1] + 3;
-        if (1..10).contains(&next) {
-            digits.push(next);
-        } else {
-            if ascending {
-                curr += 1;
-            } else {
-                curr -= 1;
-            }
-            continue;
-        }
-        let next = digits[0] - 7;
-        if (1..10).contains(&next) {
-            digits.push(next);
-            break;
-        } else if ascending {
-            curr += 1;
-        } else {
-            curr -= 1;
         }
     }
-    digits.iter().rev().fold(0, |acc, cur| 10*acc+ *cur as usize)
 }
 
 #[cfg(test)]
