@@ -60,16 +60,16 @@ impl Cpu {
             if line_number != 0 {
                 rendering.push('\n');
             }
-            let mut this_line = String::new();
-            (0..40).for_each(|col_number| {
-                let clock_cycle = 40*line_number+col_number;
-                if (clock_cycle as i32 % 40 - self.states[clock_cycle + 1]).abs() < 2 {
-                    this_line += "#";
-                } else {
-                    this_line += ".";
-                }
-            });
-            rendering.push_str(&this_line);
+            rendering.extend(
+                (0..40).map(|col_number| {
+                    let clock_cycle = 40*line_number+col_number;
+                    if (clock_cycle as i32 % 40 - self.states[clock_cycle + 1]).abs() < 2 {
+                        '#'
+                    } else {
+                        '.'
+                    }
+                })
+            );
         });
         rendering
     }
