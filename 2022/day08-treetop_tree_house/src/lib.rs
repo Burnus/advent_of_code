@@ -1,8 +1,16 @@
-use std::fs;
+use core::fmt::Display;
 
-fn read_file(path: &str) -> String {
-    fs::read_to_string(path)
-        .expect("File not Found")
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseError {
+    ParseIntError(char),
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ParseIntError(c) => write!(f, "Unable to parse {c} into integer"),
+        }
+    }
 }
 
 fn get_visibility(forest: &[Vec<u8>]) -> usize {
@@ -83,35 +91,31 @@ fn get_scenic_score(forest: &[Vec<u8>]) -> usize {
     highest_scenic_score
 }
 
-fn main() {
-    let trees = read_file("input");
-    let forest: Vec<Vec<u8>> = trees.lines()
-        .map(|row| row.bytes()
-             .map(|c| c as u8 - b'0')
-             .collect())
-        .collect();
-
-    let visible = get_visibility(&forest);
-    let highest_scenic_score = get_scenic_score(&forest);
-
-    println!("{visible} trees are visible from at least one edge.");
-    println!("The highest scenic score is {highest_scenic_score}");
+pub fn run(input: &str) -> Result<(usize, usize), ParseError> {
+    let forest = input.lines().map(|row| row.chars().map(|t| t.to_digit(10).map(|d| d as u8).ok_or(ParseError::ParseIntError(t))).collect()).collect::<Result<Vec<Vec<_>>, _>>()?;
+    let first = get_visibility(&forest);
+    let second = get_scenic_score(&forest);
+    Ok((first, second))
 }
 
-#[test]
-fn sample_input() {
-    let trees = read_file("tests/sample_input");
-    let forest: Vec<Vec<_>> = trees.lines().map(|r| r.bytes().map(|c| c as u8 - b'0').collect()).collect();
-    assert_eq!(get_visibility(&forest), 21);
-    assert_eq!(get_scenic_score(&forest), 8);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::read_to_string;
 
-}
+    fn read_file(name: &str) -> String {
+        read_to_string(name).expect(&format!("Unable to read file: {name}")[..]).trim().to_string()
+    }
 
-#[test]
-fn challenge_input() {
-    let trees = read_file("tests/input");
-    let forest: Vec<Vec<_>> = trees.lines().map(|r| r.bytes().map(|c| c as u8 - b'0').collect()).collect();
-    assert_eq!(get_visibility(&forest), 1695);
-    assert_eq!(get_scenic_score(&forest), 287040);
+    #[test]
+    fn test_sample() {
+        let sample_input = read_file("tests/sample_input");
+        assert_eq!(run(&sample_input), Ok((21, 8)));
+    }
 
+    #[test]
+    fn test_challenge() {
+        let challenge_input = read_file("tests/challenge_input");
+        assert_eq!(run(&challenge_input), Ok((1695, 287040)));
+    }
 }
