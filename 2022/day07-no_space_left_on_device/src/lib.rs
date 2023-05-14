@@ -1,4 +1,17 @@
-use std::fs;
+use core::fmt::Display;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseError {
+    LineMalformed(String),
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::LineMalformed(v) => write!(f, "Line is malformed: {v}"),
+        }
+    }
+}
 
 struct FileSystem {
     nodes: Vec<Node>,
@@ -78,7 +91,7 @@ impl FileSystem {
         self.nodes[cwd].last_child = Some(NodeID { index: new_node });
     }
 
-    fn parse_terminal_output(&mut self, terminal_output: &str) {
+    fn parse_terminal_output(&mut self, terminal_output: &str) -> Result<(), ParseError> {
         for line in terminal_output.lines() {
             if line.starts_with("$ cd") {
                 self.cd(&line[5..]);
@@ -86,8 +99,11 @@ impl FileSystem {
                 continue;
             } else if let Some((size, name)) = line.split_once(' ') {
                     self.ensure_child_exists(name, size.parse().ok());
+            } else {
+                return Err(ParseError::LineMalformed(line.to_string()));
             }
         }
+        Ok(())
     }
 
     fn get_directory_sizes(&self, anchor: NodeID) -> Vec<(String, usize)> {
@@ -109,18 +125,13 @@ impl FileSystem {
     }
 }
 
-fn read_file(path: &str) -> String {
-    fs::read_to_string(path)
-        .expect("File not Found")
-}
-
-fn analyze_filesystem(terminal_output: &str) -> (usize, usize) {
+pub fn run(terminal_output: &str) -> Result<(usize, usize), ParseError> {
     let mut file_system = FileSystem {
         nodes: Vec::new(),
         current_working_dir: NodeID { index: 0 },
     };
     file_system.init();
-    file_system.parse_terminal_output(terminal_output);
+    file_system.parse_terminal_output(terminal_output)?;
 
     let directory_sizes = file_system.get_directory_sizes(NodeID { index: 0 });
     let dir_sizes_under_100k_sum: usize = directory_sizes.iter()
@@ -132,27 +143,29 @@ fn analyze_filesystem(terminal_output: &str) -> (usize, usize) {
         .filter(|(_, size)| *size>=total_size-40_000_000)
         .map(|(_, size)| *size)
         .min()
-        .unwrap();
+        .unwrap_or_default();
 
-    (dir_sizes_under_100k_sum, smallest_dir_to_delete_size)
+    Ok((dir_sizes_under_100k_sum, smallest_dir_to_delete_size))
 }
 
-fn main() {
-    let terminal_output = read_file("input");
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::read_to_string;
 
-    let (dir_sizes_under_100k_sum, smallest_dir_to_delete_size) = analyze_filesystem(&terminal_output);
-    println!("There are {} Bytes in directories of at most 100 kB total size.", dir_sizes_under_100k_sum);
-    println!("The smallest dir that would free up enough space has {} Bytes", smallest_dir_to_delete_size);
-}
+    fn read_file(name: &str) -> String {
+        read_to_string(name).expect(&format!("Unable to read file: {name}")[..]).trim().to_string()
+    }
 
-#[test]
-fn sample_input() {
-    let terminal_output = read_file("tests/sample_input");
-    assert_eq!(analyze_filesystem(&terminal_output), (95437, 24933642));
-}
+    #[test]
+    fn test_sample() {
+        let sample_input = read_file("tests/sample_input");
+        assert_eq!(run(&sample_input), Ok((95437, 24933642)));
+    }
 
-#[test]
-fn challenge_input() {
-    let terminal_output = read_file("tests/input");
-    assert_eq!(analyze_filesystem(&terminal_output), (1743217, 8319096));
+    #[test]
+    fn test_challenge() {
+        let challenge_input = read_file("tests/challenge_input");
+        assert_eq!(run(&challenge_input), Ok((1743217, 8319096)));
+    }
 }
