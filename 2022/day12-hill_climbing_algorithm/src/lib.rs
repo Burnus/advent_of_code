@@ -1,3 +1,18 @@
+use core::fmt::Display;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseError {
+    LineMalformed(String),
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::LineMalformed(v) => write!(f, "Line is malformed: {v}"),
+        }
+    }
+}
+
 use std::u8;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
@@ -219,15 +234,19 @@ pub fn get_network_to(destination: Position, grid: &[Vec<u8>]) -> Vec<Vec<Positi
 /// - max: The Coordinate of the last character in the last line of map. This is used to
 /// determine the extent of the map.
 ///
-/// # Panics
+/// # Errors
 ///
-/// This panics if map contains lines of different length.
+/// Returns a LineMalformed Error whent the map is non-rectangular. The contained String includes
+/// the index of the first line that's of a different length then the lines before, as well as its
+/// length and that of line 0.
 ///
 /// # Examples
 /// ```
 /// use day12_hill_climbing_algorithm::*;
 /// let map = "Sabqponm\nabcryxxl\naccszExk\nacctuvwj\nabdefghi";
-/// let (grid, start, end, max) = parse(map);
+/// let parsed = try_parse(map);
+/// assert!(parsed.is_ok());
+/// let (grid, start, end, max) = parsed.unwrap();
 /// assert_eq!(grid, vec![
 ///         vec![0, 0, 1, 16, 15, 14, 13, 12],
 ///         vec![0, 1, 2, 17, 24, 23, 23, 11],
@@ -238,9 +257,12 @@ pub fn get_network_to(destination: Position, grid: &[Vec<u8>]) -> Vec<Vec<Positi
 /// assert_eq!(start, Coordinate::from(0, 0));
 /// assert_eq!(end, Coordinate::from(5, 2));
 /// assert_eq!(max, Coordinate::from(7, 4));
+///
+/// let map = "Sabqponm\nabcryxxl\naccszExk\nac\nabdefghi";
+/// assert!(try_parse(map).is_err());
 /// ```
 ///
-pub fn parse(map: &str) -> (Vec<Vec<u8>>, Coordinate, Coordinate, Coordinate) {
+pub fn try_parse(map: &str) -> Result<(Vec<Vec<u8>>, Coordinate, Coordinate, Coordinate), ParseError> {
     let mut grid = Vec::new();
     let mut start = Coordinate { x: 0, y: 0, };
     let mut end = Coordinate { x: 0, y: 0, };
@@ -261,11 +283,51 @@ pub fn parse(map: &str) -> (Vec<Vec<u8>>, Coordinate, Coordinate, Coordinate) {
         y: grid.len() as u8 - 1,
     };
 
-    grid.iter().enumerate().for_each(|(idx, row)| {
+    for (idx, row) in grid.iter().enumerate() {
         if row.len() != max.x as usize + 1 {
-            panic!("Tried to parse a non-rectangular map. Row {idx} has {} characters, but row 0 has {}.", row.len(), max.x + 1);
+            return Err(ParseError::LineMalformed(format!("Tried to parse a non-rectangular map. Row {idx} has {} characters, but row 0 has {}.", row.len(), max.x + 1)));
         }
-    });
+    }
 
-    (grid, start, end, max)
+    Ok((grid, start, end, max))
+}
+
+pub fn run(input: &str) -> Result<(usize, usize), ParseError> {
+    let (grid, start, end, max) = try_parse(input)?;
+    let dest_position = Position::from(25, end, max);
+    let dest_network = get_network_to(dest_position, &grid);
+    let first = get_length(&dest_network, |position| position.coordinate() == start);
+    let second = get_length(&dest_network, |position| position.height() == 0);
+    Ok((first, second))
+}
+
+fn get_length<F>(dest_network: &[Vec<Position>], start_condition: F) -> usize where
+    F: Fn(&Position) -> bool + Copy {
+    dest_network.iter()
+        .enumerate()
+        .find(|(_length, positions)| positions.iter().any(start_condition))
+        .unwrap()
+        .0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::read_to_string;
+
+    fn read_file(name: &str) -> String {
+        read_to_string(name).expect(&format!("Unable to read file: {name}")[..]).trim().to_string()
+    }
+
+    #[test]
+    fn test_sample() {
+        let sample_input = read_file("tests/sample_input");
+        assert_eq!(run(&sample_input), Ok((31, 29)));
+    }
+
+    #[test]
+    fn test_challenge() {
+        let challenge_input = read_file("tests/challenge_input");
+        assert_eq!(run(&challenge_input), Ok((425, 418)));
+    }
 }
