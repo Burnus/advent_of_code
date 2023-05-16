@@ -1,4 +1,18 @@
-use std::{fs, isize, collections::HashMap};
+use core::fmt::Display;
+use std::collections::HashMap;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseError {
+    UnexpectedMapFeature(char, usize, usize),
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnexpectedMapFeature(c, x, y) => write!(f, "Trying to parse unexpected map feature {c} at x={x}, y={y}"),
+        }
+    }
+}
 
 #[derive(Clone, Copy, PartialEq)]
 enum Tile { Free, Elf, ProposedOnce, ProposedMultiple }
@@ -105,22 +119,6 @@ impl Elf {
     }
 }
 
-fn read_file(path: &str) -> HashMap<(isize, isize), Tile> {
-    fs::read_to_string(path)
-        .expect("File not Found")
-        .lines()
-        .enumerate()
-        .flat_map(|(y, l)| l.chars()
-            .enumerate()
-            .map(move |(x, c)| ((x as isize, y as isize), match c {
-                '.' => Tile::Free,
-                '#' => Tile::Elf,
-                _ => panic!("Unexpected Map Feature: {c} at {x}, {y}"),
-            })))
-        .collect()
-}
-
-
 fn get_free_tiles(elfs: &mut [Elf], grid: &mut HashMap<(isize, isize), Tile>, rounds: usize) -> usize {
     for round in 0..rounds {
         elfs.iter_mut().for_each(|elf| *elf = elf.consider(round, grid));
@@ -142,7 +140,7 @@ fn get_free_tiles(elfs: &mut [Elf], grid: &mut HashMap<(isize, isize), Tile>, ro
 fn get_last_round(elfs: &mut [Elf], grid: &mut HashMap<(isize, isize), Tile>, starting_round: usize) -> usize {
     for round in starting_round.. {
         elfs.iter_mut().for_each(|elf| *elf = elf.consider(round, grid));
-        if !elfs.iter().any(|elf| elf.considered != None) {
+        if !elfs.iter().any(|elf| elf.considered.is_some()) {
             return round + 1;
         }
         elfs.iter_mut().for_each(|elf| *elf = elf.reposition(grid));
@@ -150,40 +148,45 @@ fn get_last_round(elfs: &mut [Elf], grid: &mut HashMap<(isize, isize), Tile>, st
     unreachable!("The loop always returns");
 }
 
-fn main() {
-    let mut grid = read_file("input");
-
+pub fn run(input: &str) -> Result<(usize, usize), ParseError> {
+    let mut grid: HashMap<_, _> = input.lines()
+        .enumerate()
+        .flat_map(|(y, l)| l.chars()
+            .enumerate()
+            .map(move |(x, c)| match c {
+                '.' => Ok(((x as isize, y as isize), Tile::Free)),
+                '#' => Ok(((x as isize, y as isize), Tile::Elf)),
+                _ => Err(ParseError::UnexpectedMapFeature(c, x, y)),
+            }))
+        .collect::<Result<HashMap<_, _>, _>>()?;
     let mut elfs: Vec<Elf> = grid.iter()
         .filter(|((_, _), &tile)| tile==Tile::Elf)
         .map(|((x, y), _)| Elf { x: *x, y: *y, considered: None })
         .collect();
 
-    println!("After 10 Rounds, {} tiles are free.", get_free_tiles(&mut elfs, &mut grid, 10));
-    println!("No more movement after round {}.", get_last_round(&mut elfs, &mut grid, 10));
+    let first = get_free_tiles(&mut elfs, &mut grid, 10);
+    let second = get_last_round(&mut elfs, &mut grid, 10);
+    Ok((first, second))
 }
 
-#[test]
-fn sample_input() {
-    let mut grid = read_file("tests/sample_input");
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::read_to_string;
 
-    let mut elfs: Vec<Elf> = grid.iter()
-        .filter(|((_, _), &tile)| tile==Tile::Elf)
-        .map(|((x, y), _)| Elf { x: *x, y: *y, considered: None })
-        .collect();
+    fn read_file(name: &str) -> String {
+        read_to_string(name).expect(&format!("Unable to read file: {name}")[..]).trim().to_string()
+    }
 
-    assert_eq!(get_free_tiles(&mut elfs, &mut grid, 10), 110);
-    assert_eq!(get_last_round(&mut elfs, &mut grid, 10), 20);
-}
+    #[test]
+    fn test_sample() {
+        let sample_input = read_file("tests/sample_input");
+        assert_eq!(run(&sample_input), Ok((110, 20)));
+    }
 
-#[test]
-fn challenge_input() {
-    let mut grid = read_file("tests/input");
-
-    let mut elfs: Vec<Elf> = grid.iter()
-        .filter(|((_, _), &tile)| tile==Tile::Elf)
-        .map(|((x, y), _)| Elf { x: *x, y: *y, considered: None })
-        .collect();
-
-    assert_eq!(get_free_tiles(&mut elfs, &mut grid, 10), 4068);
-    assert_eq!(get_last_round(&mut elfs, &mut grid, 10), 968);
+    #[test]
+    fn test_challenge() {
+        let challenge_input = read_file("tests/challenge_input");
+        assert_eq!(run(&challenge_input), Ok((4068, 968)));
+    }
 }

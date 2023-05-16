@@ -1,4 +1,19 @@
-use std::fs;
+use core::fmt::Display;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseError {
+    StartNotFound,
+    UnexpectedChar(char)
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::StartNotFound => write!(f, "Unable to find a starting blizzard in row 0"),
+            Self::UnexpectedChar(c) => write!(f, "Trying to parse unexpected character {c} into map"),
+        }
+    }
+}
 
 #[derive(PartialEq)]
 enum Direction { Up, Down, Left, Right }
@@ -65,16 +80,12 @@ impl Blizard {
     }
 }
 
-fn read_file(path: &str) -> (Vec<Vec<Tile>>, Vec<Blizard>) {
+fn try_parse(input: &str) -> Result<(Vec<Vec<Tile>>, Vec<Blizard>), ParseError> {
     let mut map = Vec::new();
     let mut blizzards = Vec::new();
-    fs::read_to_string(path)
-        .expect("File not Found")
-        .lines()
-        .enumerate()
-        .for_each(|(y, line)| {
+    for (y, line) in input.lines().enumerate() {
             let mut this_line = Vec::new();
-            line.chars().enumerate().for_each(|(x, c)| {
+            for (x, c) in line.chars().enumerate() {
                 match &c {
                     '.' => this_line.push(Tile::Blizards(0)),
                     '#' => this_line.push(Tile::Wall),
@@ -94,12 +105,12 @@ fn read_file(path: &str) -> (Vec<Vec<Tile>>, Vec<Blizard>) {
                             this_line.push(Tile::Blizards(1));
                             blizzards.push(Blizard { x, y, direction: Direction::Down });
                         },
-                    _ => panic!("Unexpected Map Character: {c}"),
+                    c => return Err(ParseError::UnexpectedChar(*c)),
                 }
-            });
+            }
             map.push(this_line);
-        });
-    (map, blizzards)
+        }
+    Ok((map, blizzards))
 }
 
 fn get_neighbours((x, y): (usize, usize), max_x: usize, max_y: usize) -> Vec<(usize, usize)> {
@@ -149,37 +160,36 @@ fn get_rounds_from_to(start: (usize, usize), destination: (usize, usize), map: &
     rounds
 }
 
-fn main() {
-    let (mut map, mut blizzards) = read_file("input");
-    let start = (map[0].iter().position(|tile| *tile == Tile::Blizards(0)).unwrap(), 0);
+pub fn run(input: &str) -> Result<(usize, usize), ParseError> {
+    let (mut map, mut blizzards) = try_parse(input)?;
+    let start = (map[0].iter().position(|tile| *tile == Tile::Blizards(0)).ok_or(ParseError::StartNotFound)?, 0);
     let destination = (map[map.len()-1].iter().position(|tile| *tile == Tile::Blizards(0)).unwrap(), map.len()-1);
 
-    let mut rounds = get_rounds_from_to(start, destination, &mut map, &mut blizzards);
-    println!("Reached desitnation after {} rounds.", rounds);
-    rounds += get_rounds_from_to(destination, start, &mut map, &mut blizzards);
-    println!("Reached start again after {} rounds.", rounds);
-    rounds += get_rounds_from_to(start, destination, &mut map, &mut blizzards);
-    println!("Reached desitnation after {} rounds.", rounds);
+    let mut second = get_rounds_from_to(start, destination, &mut map, &mut blizzards);
+    let first = second;
+    second += get_rounds_from_to(destination, start, &mut map, &mut blizzards);
+    second += get_rounds_from_to(start, destination, &mut map, &mut blizzards);
+    Ok((first, second))
 }
 
-#[test]
-fn sample_input() {
-    let (mut map, mut blizzards) = read_file("tests/sample_input");
-    let start = (map[0].iter().position(|tile| *tile == Tile::Blizards(0)).unwrap(), 0);
-    let destination = (map[map.len()-1].iter().position(|tile| *tile == Tile::Blizards(0)).unwrap(), map.len()-1);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::read_to_string;
 
-    assert_eq!(get_rounds_from_to(start, destination, &mut map, &mut blizzards), 18);
-    assert_eq!(get_rounds_from_to(destination, start, &mut map, &mut blizzards), 23);
-    assert_eq!(get_rounds_from_to(start, destination, &mut map, &mut blizzards), 13);
-}
+    fn read_file(name: &str) -> String {
+        read_to_string(name).expect(&format!("Unable to read file: {name}")[..]).trim().to_string()
+    }
 
-#[test]
-fn challenge_input() {
-    let (mut map, mut blizzards) = read_file("tests/input");
-    let start = (map[0].iter().position(|tile| *tile == Tile::Blizards(0)).unwrap(), 0);
-    let destination = (map[map.len()-1].iter().position(|tile| *tile == Tile::Blizards(0)).unwrap(), map.len()-1);
+    #[test]
+    fn test_sample() {
+        let sample_input = read_file("tests/sample_input");
+        assert_eq!(run(&sample_input), Ok((18, 54)));
+    }
 
-    assert_eq!(get_rounds_from_to(start, destination, &mut map, &mut blizzards), 277);
-    assert_eq!(get_rounds_from_to(destination, start, &mut map, &mut blizzards), 305);
-    assert_eq!(get_rounds_from_to(start, destination, &mut map, &mut blizzards), 295);
+    #[test]
+    fn test_challenge() {
+        let challenge_input = read_file("tests/challenge_input");
+        assert_eq!(run(&challenge_input), Ok((277, 877)));
+    }
 }

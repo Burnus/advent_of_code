@@ -1,4 +1,19 @@
-use std::fs;
+use core::fmt::Display;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ParseError<'a> {
+    InputMalformed(&'a str),
+    InvalidChar(char),
+}
+
+impl Display for ParseError<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InputMalformed(v) => write!(f, "Unable to split Input into Map and Instructions. Input should consist of 2 parts, separated by an empty line:\n{v}"),
+            Self::InvalidChar(c) => write!(f, "Invalid Character {c} encountered"),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Direction { 
@@ -14,7 +29,6 @@ enum Wrapping { Flat, Cube(isize) }
 #[derive(PartialEq)]
 enum Walkability { Free, Obstructed, Void }
 
-//#[derive(Debug)]
 enum Instruction { Go(usize), Turn(char) }
 
 #[derive(Clone, Copy)]
@@ -193,23 +207,23 @@ impl Position {
     }
 }
 
-fn parse_map(string: &str) -> Vec<Vec<Walkability>> {
+fn try_parse_map(string: &str) -> Result<Vec<Vec<Walkability>>, ParseError> {
     string.lines()
         .map(|line| line.chars()
                 .map(|c| match c {
-                        ' ' => Walkability::Void,
-                        '.' => Walkability::Free,
-                        '#' => Walkability::Obstructed,
-                        _ => panic!("Unexpected Map Item: {c}"),
+                        ' ' => Ok(Walkability::Void),
+                        '.' => Ok(Walkability::Free),
+                        '#' => Ok(Walkability::Obstructed),
+                        _ => Err(ParseError::InvalidChar(c)),
                     })
                 .collect())
-        .collect()
+        .collect::<Result<Vec<_>, _>>()
 }
 
-fn parse_instructions(line: &str) -> Vec<Instruction> {
+fn try_parse_instructions(line: &str) -> Result<Vec<Instruction>, ParseError> {
     let mut instructions = Vec::new();
     let mut distance = 0_usize;
-    line.chars().for_each(|c| {
+    for c in line.chars() {
         if let Some(d) = c.to_digit(10) {
             distance *= 10;
             distance += d as usize;
@@ -219,20 +233,22 @@ fn parse_instructions(line: &str) -> Vec<Instruction> {
                 distance = 0;
             }
             instructions.push(Instruction::Turn(c));
+        } else if c == '\n' {
+            continue;
+        } else {
+            return Err(ParseError::InvalidChar(c));
         }
-    });
+    }
     if distance > 0 {
         instructions.push(Instruction::Go(distance));
     }
-    instructions
+    Ok(instructions)
 }
 
-fn read_file(path: &str) -> (Vec<Vec<Walkability>>, Vec<Instruction>) {
-    let components = fs::read_to_string(path)
-        .expect("File not Found");
-    let (map_str, instructions_str) = components.split_once("\n\n").unwrap();
-    (parse_map(map_str), parse_instructions(instructions_str))
-}
+// fn read_file(input: &str) -> (Vec<Vec<Walkability>>, Vec<Instruction>) {
+//     let (map_str, instructions_str) = components.split_once("\n\n").unwrap();
+//     (parse_map(map_str), parse_instructions(instructions_str))
+// }
 
 fn get_password(map: &[Vec<Walkability>], instructions: &[Instruction], wrapping: Wrapping) -> usize {
     let mut position = Position {
@@ -250,29 +266,38 @@ fn get_password(map: &[Vec<Walkability>], instructions: &[Instruction], wrapping
     (position.coordinate.row + 1) * 1000 + (position.coordinate.col + 1) * 4 + position.facing as usize
 }
 
-fn main() {
-    let (map, instructions) = read_file("input");
-
-    println!("Flat Map ended up at Password {}", get_password(&map, &instructions, Wrapping::Flat));
+pub fn run(input: &str) -> Result<(usize, usize), ParseError> {
+    let (map, instructions) = input.split_once("\n\n").ok_or(ParseError::InputMalformed(input))?;
+    let map = try_parse_map(map)?;
+    let instructions = try_parse_instructions(instructions)?;
+    let first = get_password(&map, &instructions, Wrapping::Flat);
     let side_length = (map.iter().map(|i| i.iter().filter(|&w| *w != Walkability::Void).count()).sum::<usize>() as f64 / 6.0).sqrt() as isize;
-    println!("Cube Map ended up at Password {}.", get_password(&map, &instructions, Wrapping::Cube(side_length)));
+    let second = get_password(&map, &instructions, Wrapping::Cube(side_length));
+    Ok((first, second))
 }
 
-#[test]
-fn sample_input() {
-    let (map, instructions) = read_file("tests/sample_input");
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::read_to_string;
 
-    assert_eq!(get_password(&map, &instructions, Wrapping::Flat), 6032);
-    let side_length = (map.iter().map(|i| i.iter().filter(|&w| *w != Walkability::Void).count()).sum::<usize>() as f64 / 6.0).sqrt() as isize;
-    // Part 2 does not work for the sample input, sice it is shaped differently.
-    assert_eq!(side_length, 4);
-}
+    fn read_file(name: &str) -> String {
+        read_to_string(name).expect(&format!("Unable to read file: {name}")[..])
+    }
 
-#[test]
-fn challenge_input() {
-    let (map, instructions) = read_file("tests/input");
+    #[test]
+    fn test_sample() {
+        let sample_input = read_file("tests/sample_input");
+        let (map, instructions) = &sample_input[..].split_once("\n\n").unwrap();
+        let map = try_parse_map(map).unwrap();
+        let instructions = try_parse_instructions(instructions).unwrap();
+        assert_eq!(get_password(&map, &instructions, Wrapping::Flat), 6032);
+        assert_eq!((map.iter().map(|i| i.iter().filter(|&w| *w != Walkability::Void).count()).sum::<usize>() as f64 / 6.0).sqrt() as isize, 4);
+    }
 
-    assert_eq!(get_password(&map, &instructions, Wrapping::Flat), 58248);
-    let side_length = (map.iter().map(|i| i.iter().filter(|&w| *w != Walkability::Void).count()).sum::<usize>() as f64 / 6.0).sqrt() as isize;
-    assert_eq!(get_password(&map, &instructions, Wrapping::Cube(side_length)), 179091);
+    #[test]
+    fn test_challenge() {
+        let challenge_input = read_file("tests/challenge_input");
+        assert_eq!(run(&challenge_input), Ok((58248, 179091)));
+    }
 }
