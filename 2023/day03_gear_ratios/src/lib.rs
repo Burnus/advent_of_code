@@ -16,7 +16,7 @@ fn find_part_numbers(input: &str) -> (Vec<usize>, Vec<usize>) {
         }
     }
     let mut cur_num = 0;
-    for (line_idx, line) in input.lines().enumerate() {
+    for (line_idx, line) in input.lines().chain("\n".lines()).enumerate() {
         if cur_num > 0 {
             let digits = (1_u32..).find(|d| 10_usize.pow(*d) > cur_num).unwrap() as usize;
             let mut is_part = false;
@@ -90,9 +90,14 @@ mod tests {
     }
 
     #[test]
+    fn empty_str() {
+        assert_eq!(run(""), (0, 0))
+    }
+
+    #[test]
     fn test_sample() {
         let sample_input = read_file("tests/sample_input");
-        assert_eq!(run(&sample_input), (4361, 467835));
+        assert_eq!(run(&sample_input), (4364, 467835));
     }
 
     #[test]
