@@ -1,5 +1,5 @@
 use core::fmt::Display;
-use std::{num::ParseIntError, collections::HashSet};
+use std::{num::ParseIntError, collections::VecDeque};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseError<'a> {
@@ -22,55 +22,35 @@ impl Display for ParseError<'_> {
     }
 }
 
-struct Scratchcard {
-    count: usize,
-    winning_numbers: HashSet<usize>,
-    own_numbers: HashSet<usize>,
-}
-
-impl<'a> TryFrom<&'a str> for Scratchcard {
-    type Error = ParseError<'a>;
-
-    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
-        let parts: Vec<_> = value.split(&[':', '|']).collect();
-        if parts.len() != 3 {
-            return Err(Self::Error::LineMalformed(value));
-        }
-        let winning_numbers: HashSet<_> = parts[1].split_whitespace().map(|n| n.parse::<usize>()).collect::<Result<HashSet<_>, std::num::ParseIntError>>()?;
-        let own_numbers: HashSet<_> = parts[2].split_whitespace().map(|n| n.parse::<usize>()).collect::<Result<HashSet<_>, std::num::ParseIntError>>()?;
-
-        Ok(Scratchcard{
-            count: 1,
-            winning_numbers,
-            own_numbers,
-        })
-    }
-}
-
-impl Scratchcard {
-    fn points(&self) -> usize {
-        let correct_count = self.winning_numbers.intersection(&self.own_numbers).count();
-        match correct_count {
-            0 => 0,
-            n => 2_usize.pow(<usize as TryInto<u32>>::try_into(n).unwrap() - 1),
-        }
-    }
-}
-
 pub fn run(input: &str) -> Result<(usize, usize), ParseError> {
-    let mut cards: Vec<_> = input.lines().map(Scratchcard::try_from).collect::<Result<Vec<_>, _>>()?;
-    let first = cards.iter().map(|s| s.points()).sum();
-    for i in 0..cards.len() {
-        let this_count = cards[i].count;
-        let correct = cards[i].winning_numbers.intersection(&cards[i].own_numbers).count();
-        if correct > 0 {
-            for j in i+1..=(i+correct).min(cards.len()-1) {
-                cards[j].count += this_count;
-            }
+    let mut add_list = VecDeque::from([0; 11]);
+    let mut total_score = 0;
+    let mut total_cards = 0;
+    for line in input.lines() {
+        let parts: Vec<_> = line.split(&[':', '|']).collect();
+        if parts.len() != 3 {
+            return Err(ParseError::LineMalformed(line));
         }
+        let mut winning_numbers = 0_u128;
+        for wn in parts[1].split_whitespace() {
+            let n = wn.parse::<u32>()?;
+            winning_numbers |= 2_u128.pow(n);
+        }
+        let mut own_numbers = 0_u128;
+        for on in parts[2].split_whitespace() {
+            let n = on.parse::<u32>()?;
+            own_numbers |= 2_u128.pow(n);
+        }
+        let correct = (winning_numbers & own_numbers).count_ones();
+        let this_count = 1 + add_list.pop_front().unwrap_or(0);
+        total_cards += this_count;
+        if correct > 0 {
+            total_score += 2_usize.pow(correct-1);
+            add_list.iter_mut().take(correct as usize).for_each(|l| *l += this_count);
+        }
+        add_list.push_back(0);
     }
-    let second = cards.iter().map(|c| c.count).sum();
-    Ok((first, second))
+    Ok((total_score, total_cards))
 }
 
 #[cfg(test)]
