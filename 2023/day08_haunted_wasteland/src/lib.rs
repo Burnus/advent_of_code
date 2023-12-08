@@ -98,9 +98,6 @@ fn walk(network: &HashMap<Node, (Node, Node)>, path: &[Direction], start: &[Node
     let mut cycles = vec![0; start.len()];
     let len = path.len();
 
-    for g in start {
-        eprintln!("{}", from_node(g));
-    }
     for step in 0.. {
         if cycles.iter().all(|offset| offset != &0) {
             // The first step all ghosts will be at their destinations will be the least common
