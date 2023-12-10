@@ -31,6 +31,7 @@ impl Display for ParseError<'_> {
 struct ParseCharError { offending_char: char, }
 
 #[derive(PartialEq, Clone, Copy)]
+#[repr(u8)]
 enum Pipe {
     NorthSouth, // |
     EastWest,   // -
@@ -95,12 +96,15 @@ fn try_parse_maze(input: &str) -> Result<(HashMap<(usize, usize), Pipe>, (usize,
                     } else {
                         return Err(ParseError::DoubleStartError);
                     },
+                Pipe::Ground => (),
                 p => {
                         maze.insert((2*y+1, 2*x+1), p);
-                        let ((dy1, dx1), (dy2, dx2)) = p.get_neighbour_diffs();
-                        let (n1, n2) = p.get_neighbours();
-                        maze.insert((2*y+dy1, 2*x+dx1), n1);
-                        maze.insert((2*y+dy2, 2*x+dx2), n2);
+                        if y%2 == x%2 {
+                            let ((dy1, dx1), (dy2, dx2)) = p.get_neighbour_diffs();
+                            let (n1, n2) = p.get_neighbours();
+                            maze.insert((2*y+dy1, 2*x+dx1), n1);
+                            maze.insert((2*y+dy2, 2*x+dx2), n2);
+                        }
                     },
             }
         }
@@ -124,10 +128,12 @@ fn try_parse_maze(input: &str) -> Result<(HashMap<(usize, usize), Pipe>, (usize,
                     _ => Err(ParseError::InvalidStartNeighbours(n, s, w, e)),
                 }?;
                 maze.insert((y, x), p);
-                let ((dy1, dx1), (dy2, dx2)) = p.get_neighbour_diffs();
-                let (n1, n2) = p.get_neighbours();
-                maze.insert((y+dy1-1, x+dx1-1), n1);
-                maze.insert((y+dy2-1, x+dx2-1), n2);
+                if y%4 == x%4 {
+                    let ((dy1, dx1), (dy2, dx2)) = p.get_neighbour_diffs();
+                    let (n1, n2) = p.get_neighbours();
+                    maze.insert((y+dy1-1, x+dx1-1), n1);
+                    maze.insert((y+dy2-1, x+dx2-1), n2);
+                }
                 Ok((maze, (y, x)))
             },
     }
@@ -148,8 +154,7 @@ fn filter_and_return_max_dist(maze: &mut HashMap<(usize, usize), Pipe>, start: (
         let ((dy1, dx1), (dy2, dx2)) = curr_tile.get_neighbour_diffs();
         if visited.contains(&(y+dy1-1, x+dx1-1)) {
             if visited.contains(&(y+dy2-1, x+dx2-1)) {
-                let mut new_maze: HashMap<_, _> = maze.keys().filter(|(y, x)| y%2 == 1 && x%2 == 1).map(|(y, x)| ((*y, *x), Pipe::Ground)).collect();
-                visited.iter().for_each(|(y, x)| { new_maze.insert((*y, *x), *maze.get(&(*y, *x)).unwrap()); });
+                let mut new_maze = visited.iter().map(|(y, x)| ((*y, *x), *maze.get(&(*y, *x)).unwrap())).collect();
                 std::mem::swap(&mut new_maze, maze);
                 return *open_set.iter().map(|(dist, _pos)| dist).max().unwrap() / 2;
             } else {
@@ -170,6 +175,8 @@ fn filter_and_return_max_dist(maze: &mut HashMap<(usize, usize), Pipe>, start: (
 
 fn count_enclosed(maze: &HashMap<(usize, usize), Pipe>, start: (usize, usize)) -> usize {
     let mut starting: HashSet<_> = (start.0-1..start.0+2).flat_map(|y| (start.1-1..start.1+2).filter(|x| maze.get(&(y, *x)).is_none()).map(|x| (y, x)).collect::<HashSet<(usize, usize)>>()).collect();
+    let y_max = maze.iter().map(|((y, _x), _p)| *y).max().unwrap();
+    let x_max = maze.iter().map(|((_y, x), _p)| *x).max().unwrap();
     'starting_tile: while let Some(ground) = starting.iter().next() {
         let mut new_ground = 0;
         let mut open_set = VecDeque::from([*ground]);
@@ -181,19 +188,16 @@ fn count_enclosed(maze: &HashMap<(usize, usize), Pipe>, start: (usize, usize)) -
             }
             let neighbours = [(y-1, x), (y+1, x), (y, x-1), (y, x+1)];
             for neighbour in neighbours {
-                match maze.get(&neighbour) {
-                    None => if (y..y+2).all(|y1| (x..x+2).all(|x1| maze.get(&(y1, x1)).is_none())) { 
-                            continue 'starting_tile; 
-                        } else if !visited.contains(&neighbour) {
-                            visited.insert(neighbour);
-                            open_set.push_back(neighbour);
-                        },
-                    Some(Pipe::Ground) => if !visited.contains(&neighbour) {
-                            visited.insert(neighbour);
-                            open_set.push_back(neighbour);
+                if !maze.contains_key(&neighbour) {
+                    if y > y_max || x > x_max {
+                        continue 'starting_tile; 
+                    } else if !visited.contains(&neighbour) {
+                        visited.insert(neighbour);
+                        open_set.push_back(neighbour);
+                        if neighbour.0%2==1 && neighbour.1%2==1 {
                             new_ground += 1;
-                        },
-                    _ => (),
+                        }
+                    }
                 }
             }
         }
