@@ -1,6 +1,7 @@
 .aocf
 day00
 **/target
+**/benches
 **/Cargo.lock
 **/dbg.log
 **/2
