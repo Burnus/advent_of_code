@@ -1,5 +1,5 @@
 use core::fmt::Display;
-use std::{num::ParseIntError, collections::{HashSet, BinaryHeap, HashMap}};
+use std::{num::ParseIntError, collections::HashSet};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseError<'a> {
@@ -37,6 +37,17 @@ struct Coordinate(usize, usize);
 
 #[derive(PartialEq, Eq, Hash)]
 enum Direction { North, West, East, South, }
+
+impl Direction {
+    fn is_direction(&self, from: Coordinate, to: Coordinate) -> bool {
+        match self {
+            Direction::North => from.0 == to.0 && from.1 == to.1+1,
+            Direction::West => from.0+1 == to.0 && from.1 == to.1,
+            Direction::East => from.0 == to.0+1 && from.1 == to.1,
+            Direction::South => from.0 == to.0 && from.1+1 == to.1,
+        }
+    }
+}
 
 struct Map{
     path: HashSet<Coordinate>,
@@ -86,110 +97,81 @@ impl<'a> TryFrom<&'a str> for Map {
 }
 
 impl Map {
-    fn longest_route(&self, steep_slopes: bool) -> usize {
-        let mut open_set = BinaryHeap::from([SearchState{ len: 0, pos: self.start, visited: HashSet::from([self.start]), }]);
-        // let mut longest = HashMap::new();
-        let mut longest_so_far = 0;
-        // let mut coming_from = HashMap::new();
-
-        while let Some(state) = open_set.pop() {
-            let (len, pos, vis) = (state.len, state.pos, state.visited, );
-            if pos == self.dest {
-                longest_so_far = longest_so_far.max(len);
-            }
-
-            for neighbour in self.neighbours(pos, steep_slopes) {
-                // if !path_contains(&coming_from, pos, neighbour.0) && !open_set.iter().any(|p| p.len >= len+neighbour.1 && p.pos == neighbour.0) 
-                if !vis.contains(&neighbour.0) { // && *longest.get(&(pos, neighbour.0)).unwrap_or(&0) <= len+neighbour.1 
-                    let mut visited = vis.clone();
-                    visited.insert(neighbour.0);
-                    open_set.push(SearchState { len: len+neighbour.1, pos: neighbour.0, visited });
-                    // longest.insert((pos, neighbour.0), len+neighbour.1);
-                    // coming_from.insert(neighbour.0, pos);
-                }
-            }
-        }
-        longest_so_far
-    }
-
-    fn distances(&self) -> Vec<Vec<(usize, usize)>> {
+    fn distances(&self, steep_slopes: bool) -> Vec<Vec<(usize, usize)>> {
         let mut res = Vec::new();
         let mut nodes = vec![self.start, self.dest];
-        self.path.iter().filter(|n| self.neighbours(**n, false).len() > 2).for_each(|n| nodes.push(*n));
+        self.path.iter().filter(|n| self.neighbours(**n).len() > 2).for_each(|n| nodes.push(*n));
         self.slopes.iter().for_each(|s| nodes.push(s.0));
 
         nodes.iter().for_each(|from_node| {
             let mut this = Vec::new();
-            self.neighbours(*from_node, false).iter().for_each(|n| {
-                let mut prev = *from_node;
-                let mut curr = n.0;
-                let mut len = 1;
-                loop {
-                    if let Some(to_idx) = nodes.iter().position(|n| n == &curr) {
-                        this.push((to_idx, len));
-                        break;
-                    }
-                    if let Some(&(next, _)) = self.neighbours(curr, false).iter().find(|&&(next, _)| next != prev) {
-                        len += 1;
-                        prev = curr;
-                        curr = next;
-                    } else {
-                        break;
+            self.neighbours(*from_node).iter().for_each(|&n| {
+                let slope = self.slopes.iter().find(|(pos, _dir)| pos == from_node);
+                if !steep_slopes || slope.is_none() || slope.unwrap().1.is_direction(*from_node, n) {
+                    let mut prev = *from_node;
+                    let mut curr = n;
+                    let mut len = 1;
+                    loop {
+                        if let Some(to_idx) = nodes.iter().position(|n| n == &curr) {
+                            this.push((to_idx, len));
+                            break;
+                        }
+                        if let Some(&next) = self.neighbours(curr).iter().find(|&&next| next != prev) {
+                            len += 1;
+                            prev = curr;
+                            curr = next;
+                        } else {
+                            break;
+                        }
                     }
                 }
             });
             res.push(this);
         });
-        res
-    }
-
-
-    fn neighbours(&self, pos: Coordinate, steep_slopes: bool) -> Vec<(Coordinate, usize)> {
-        let mut res = Vec::new();
-        if pos.0 > 0 && self.path.contains(&Coordinate(pos.0-1, pos.1)) { res.push((Coordinate(pos.0-1, pos.1), 1)); }
-        if pos.1 > 0 && self.path.contains(&Coordinate(pos.0, pos.1-1)) { res.push((Coordinate(pos.0, pos.1-1), 1)); }
-        if self.path.contains(&Coordinate(pos.0+1, pos.1)) { res.push((Coordinate(pos.0+1, pos.1), 1)); }
-        if self.path.contains(&Coordinate(pos.0, pos.1+1)) { res.push((Coordinate(pos.0, pos.1+1), 1)); }
-
-        if steep_slopes {
-            if pos.0 > 0 && self.slopes.contains(&(Coordinate(pos.0-1, pos.1), Direction::East)) { res.push((Coordinate(pos.0-2, pos.1), 2)); }
-            if pos.1 > 0 && self.slopes.contains(&(Coordinate(pos.0, pos.1-1), Direction::North)) { res.push((Coordinate(pos.0, pos.1-2), 2)); }
-            if self.slopes.contains(&(Coordinate(pos.0+1, pos.1), Direction::West)) { res.push((Coordinate(pos.0+2, pos.1), 2)); }
-            if self.slopes.contains(&(Coordinate(pos.0, pos.1+1), Direction::South)) { res.push((Coordinate(pos.0, pos.1+2), 2)); }
-        } else {
-            if pos.0 > 0 && self.slopes.iter().any(|(p, _)| p == &Coordinate(pos.0-1, pos.1)) { res.push((Coordinate(pos.0-1, pos.1), 1)); }
-            if pos.1 > 0 && self.slopes.iter().any(|(p, _)| p == &Coordinate(pos.0, pos.1-1)) { res.push((Coordinate(pos.0, pos.1-1), 1)); }
-            if self.slopes.iter().any(|(p, _)| p == &Coordinate(pos.0+1, pos.1)) { res.push((Coordinate(pos.0+1, pos.1), 1)); }
-            if self.slopes.iter().any(|(p, _)| p == &Coordinate(pos.0, pos.1+1)) { res.push((Coordinate(pos.0, pos.1+1), 1)); }
+        while let Some(idx) = res.iter().position(|d| d.len() == 2) {
+            let middle = &res[idx];
+            let left_idx = middle[0].0;
+            let right_idx = middle[1].0;
+            let d = middle[0].1 + middle[1].1;
+            res[idx] = Vec::new();
+            res[left_idx].iter_mut().for_each(|(dest, len)| {
+                if *dest == idx {
+                    *dest = right_idx;
+                    *len = d;
+                }
+            });
+            res[right_idx].iter_mut().for_each(|(dest, len)| {
+                if *dest == idx {
+                    *dest = left_idx;
+                    *len = d;
+                }
+            });
         }
-
         res
     }
-}
 
-#[derive(PartialEq, Eq)]
-struct SearchState {
-    len: usize,
-    pos: Coordinate,
-    visited: HashSet<Coordinate>,
-}
 
-impl PartialOrd for SearchState {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
+    fn neighbours(&self, pos: Coordinate) -> Vec<Coordinate> {
+        let mut res = Vec::new();
+        if pos.0 > 0 && self.path.contains(&Coordinate(pos.0-1, pos.1)) { res.push(Coordinate(pos.0-1, pos.1)); }
+        if pos.1 > 0 && self.path.contains(&Coordinate(pos.0, pos.1-1)) { res.push(Coordinate(pos.0, pos.1-1)); }
+        if self.path.contains(&Coordinate(pos.0+1, pos.1)) { res.push(Coordinate(pos.0+1, pos.1)); }
+        if self.path.contains(&Coordinate(pos.0, pos.1+1)) { res.push(Coordinate(pos.0, pos.1+1)); }
 
-impl Ord for SearchState {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.len.cmp(&other.len)
+        if pos.0 > 0 && self.slopes.iter().any(|(p, _)| p == &Coordinate(pos.0-1, pos.1)) { res.push(Coordinate(pos.0-1, pos.1)); }
+        if pos.1 > 0 && self.slopes.iter().any(|(p, _)| p == &Coordinate(pos.0, pos.1-1)) { res.push(Coordinate(pos.0, pos.1-1)); }
+        if self.slopes.iter().any(|(p, _)| p == &Coordinate(pos.0+1, pos.1)) { res.push(Coordinate(pos.0+1, pos.1)); }
+        if self.slopes.iter().any(|(p, _)| p == &Coordinate(pos.0, pos.1+1)) { res.push(Coordinate(pos.0, pos.1+1)); }
+
+        res
     }
 }
 
 pub fn run(input: &str) -> Result<(usize, usize), ParseError> {
     let map = Map::try_from(input)?;
-    let first = map.longest_route(true);
-    let distances = map.distances();
+    let distances = map.distances(true);
+    let first = longest_route(&distances);
+    let distances = map.distances(false);
     let second = longest_route(&distances);
     Ok((first, second))
 }
@@ -213,18 +195,6 @@ fn longest_route(distances: &[Vec<(usize, usize)>]) -> usize {
         });
     }
     longest_so_far
-}
-
-fn path_contains(path: &HashMap<Coordinate, Coordinate>, dest: Coordinate, query: Coordinate) -> bool {
-    if let Some(&prev) = path.get(&dest) {
-        if prev == query {
-            false
-        } else {
-            path_contains(path, prev, query)
-        }
-    } else {
-        true
-    }
 }
 
 #[cfg(test)]
