@@ -36,7 +36,6 @@ impl<'a> TryFrom<&'a str> for Lists {
         for line in value.lines() {
             let elems: Vec<_> = line.split_whitespace().collect();
             if elems.len() == 2 {
-            // if let Some((l, r)) = line.split_once("   ") {
                 lhs.push(elems[0].parse::<usize>()?);
                 rhs.push(elems[1].parse::<usize>()?);
             } else {
@@ -50,10 +49,11 @@ impl<'a> TryFrom<&'a str> for Lists {
 }
 
 pub fn run(input: &str) -> Result<(usize, usize), ParseError> {
-    // let lists: Vec<_> = input.lines().map(::try_from).collect::<Result<Vec<_>, _>>()?;
     let lists = Lists::try_from(input)?;
     let first = lists.lhs.iter().zip(lists.rhs.iter()).map(|(l, r)| l.abs_diff(*r)).sum();
-    let second = lists.lhs.iter().map(|l| l * lists.rhs.iter().filter(|r| l == *r).count()).sum();
+    let second = lists.lhs.iter().map(|l| 
+            l * (lists.rhs.partition_point(|r| r <= l) - lists.rhs.partition_point(|r| r < l))
+        ).sum();
     Ok((first, second))
 }
 
@@ -75,6 +75,6 @@ mod tests {
     #[test]
     fn test_challenge() {
         let challenge_input = read_file("tests/challenge_input");
-        assert_eq!(run(&challenge_input), Ok((0, 0)));
+        assert_eq!(run(&challenge_input), Ok((2769675, 24643097)));
     }
 }
