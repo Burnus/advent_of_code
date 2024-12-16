@@ -65,7 +65,7 @@ impl TryFrom<&str> for Warehouse {
 impl Warehouse {
     fn perform_sequence(&mut self, sequence: &[Coordinates]) {
         for &step in sequence {
-            let next = adjust(self.robot, step, 1);
+            let next = (self.robot.0 + step.0, self.robot.1 + step.1);
             if self.walls.contains(&next) {
                 continue;
             }
@@ -87,7 +87,7 @@ impl Warehouse {
     fn try_push(&mut self, from: &[Coordinates], direction: Coordinates) -> bool {
         let mut pushed = Vec::new();
         for &start in from {
-            let next = adjust(start, direction, 1);
+            let next = (start.0+direction.0, start.1 + direction.1);
             let next_l = if self.widened { (next.0-1, next.1 ) } else { next };
             let next_r = if self.widened { (next.0+1, next.1 ) } else { next };
             if self.walls.contains(&next) || self.walls.contains(&next_r) {
@@ -101,16 +101,22 @@ impl Warehouse {
         if pushed.is_empty() {
             from.iter().for_each(|&start| {
                 self.boxes.remove(&start);
-            });
-            from.iter().for_each(|&start| {
-                self.boxes.insert(adjust(start, direction, 1));
+                self.boxes.insert((start.0 + direction.0, start.1 + direction.1));
             });
             true
         } else {
-            pushed.append(&mut from.to_vec());
+            // pushed.append(&mut from.to_vec());
             pushed.sort();
             pushed.dedup();
-            self.try_push(&pushed, direction)
+            if self.try_push(&pushed, direction) {
+                from.iter().for_each(|&start| {
+                    self.boxes.remove(&start);
+                    self.boxes.insert((start.0 + direction.0, start.1 + direction.1));
+                });
+                true
+            } else {
+                false
+            }
         }
     } 
 
@@ -126,10 +132,6 @@ impl Warehouse {
             widened: true,
         }
     }
-}
-
-fn adjust(from: Coordinates, by: Coordinates, steps: isize) -> Coordinates {
-    (from.0 + steps * by.0, from.1 + steps * by.1)
 }
 
 fn try_sequence_from(seq: &str) -> Result<Vec<Coordinates>, ParseError> {
