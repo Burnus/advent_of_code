@@ -233,7 +233,7 @@ impl<'a> Device<'a> {
     /// Try swapping all combinations of two gates, where at least one of them is contained in
     /// `must_include` and none of them in `swapped_before` and determine if their swap results in
     /// the rightmost `z_idx` bits of z are correct. Returns an unsorted Vec of all such pairs.
-    fn try_swaps(&'a mut self, z_idx: usize, must_include: &[&'a str], swapped_before: &[&'a str]) -> Vec<Vec<String>> {
+    fn try_swaps(&'a mut self, z_idx: usize, must_include: &[&'a str], swapped_before: &[&'a str]) -> Vec<[String; 2]> {
         let mut res = Vec::new();
         // We need to clone these so the borrow checker won't complain about concurrent borrows in the
         // swap loops.
@@ -254,7 +254,7 @@ impl<'a> Device<'a> {
                 *self.gates.get_mut(gate_1).unwrap() = inputs_2;
                 *self.gates.get_mut(gate_2).unwrap() = inputs_1;
                 if self.check_until(z_idx).is_none() {
-                    res.push(Vec::from([gate_1.into(), gate_2.into()]));
+                    res.push([gate_1.into(), gate_2.into()]);
                 }
                 *self.gates.get_mut(gate_1).unwrap() = inputs_1;
                 *self.gates.get_mut(gate_2).unwrap() = inputs_2;
