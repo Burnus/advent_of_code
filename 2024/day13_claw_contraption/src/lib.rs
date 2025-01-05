@@ -69,7 +69,7 @@ impl<'a> TryFrom<&'a str> for Machine {
 impl Machine {
     fn prize_cost(&self) -> Option<usize> {
         // Determine the winning combination using matrix inversion. This method delivers the only
-        // combination that will work (provided the button vectors are lenearly independent), but
+        // combination that will work (provided the button vectors are linearly independent), but
         // the result may be non-integer, in which case there is no valid solution.
         let inverse_determinant = 1.0 / ((self.btn_a.0*self.btn_b.1) as f64 - (self.btn_a.1*self.btn_b.0) as f64);
         let a_presses = (inverse_determinant * (
