@@ -109,45 +109,45 @@ impl<'a> TryFrom<&'a str> for Device<'a> {
 }
 
 impl<'a> Device<'a> {
-fn eval_gate(&mut self, name: &str, modifying: bool) -> bool {
-    if let Some(num) = name.strip_prefix('x') {
-        if let Ok(digit) = num.parse::<usize>() {
-            return self.x & (1 << digit) > 0;
+    fn eval_gate(&mut self, name: &str, modifying: bool) -> bool {
+        if let Some(num) = name.strip_prefix('x') {
+            if let Ok(digit) = num.parse::<usize>() {
+                return self.x & (1 << digit) > 0;
+            }
+        } else if let Some(num) = name.strip_prefix('y') {
+            if let Ok(digit) = num.parse::<usize>() {
+                return self.y & (1 << digit) > 0;
+            }
         }
-    } else if let Some(num) = name.strip_prefix('y') {
-        if let Ok(digit) = num.parse::<usize>() {
-            return self.y & (1 << digit) > 0;
+        // unwrap() is safe here, because we know we will only ever call this function on valid
+        // gates.
+        let this = *self.gates.get(name).unwrap();
+        let res = match this {
+            Gate::Value(a) => a,
+            Gate::And(a, b) => match (self.gates.get(a), self.gates.get(b)) {
+                (Some(Gate::Value(false)), _) | (_, Some(Gate::Value(false))) => {
+                    false
+                },
+                _ => {
+                    self.eval_gate(a, modifying) && self.eval_gate(b, modifying)
+                },
+            },
+            Gate::Or(a, b) => match (self.gates.get(a), self.gates.get(b)) {
+                (Some(Gate::Value(true)), _) | (_, Some(Gate::Value(true))) => {
+                    true
+                },
+                _ => {
+                    self.eval_gate(a, modifying) || self.eval_gate(b,  modifying)
+                },
+            },
+            Gate::Xor(a, b) => self.eval_gate(a, modifying) ^ self.eval_gate(b, modifying),
+        };
+        if modifying {
+            // unwrap() is safe here because we would have failed earlier otherwise
+            *self.gates.get_mut(name).unwrap() = Gate::Value(res);
         }
+        res
     }
-    // unwrap() is safe here, because we know we will only ever call this function on valid
-    // gates.
-    let this = *self.gates.get(name).unwrap();
-    let res = match this {
-        Gate::Value(a) => a,
-        Gate::And(a, b) => match (self.gates.get(a), self.gates.get(b)) {
-            (Some(Gate::Value(false)), _) | (_, Some(Gate::Value(false))) => {
-                false
-            },
-            _ => {
-                self.eval_gate(a, modifying) && self.eval_gate(b, modifying)
-            },
-        },
-        Gate::Or(a, b) => match (self.gates.get(a), self.gates.get(b)) {
-            (Some(Gate::Value(true)), _) | (_, Some(Gate::Value(true))) => {
-                true
-            },
-            _ => {
-                self.eval_gate(a, modifying) || self.eval_gate(b,  modifying)
-            },
-        },
-        Gate::Xor(a, b) => self.eval_gate(a, modifying) ^ self.eval_gate(b, modifying),
-    };
-    if modifying {
-        // unwrap() is safe here because we would have failed earlier otherwise
-        *self.gates.get_mut(name).unwrap() = Gate::Value(res);
-    }
-    res
-}
 
     fn eval_output_gate(&mut self, idx: usize, modifying: bool) -> usize {
         let name = if idx < 10 {
@@ -158,33 +158,33 @@ fn eval_gate(&mut self, name: &str, modifying: bool) -> bool {
         self.eval_gate(name, modifying) as usize
     }
 
-fn eval(&mut self) -> usize {
-    (0..self.output_gates).map(|idx| self.eval_output_gate(idx, true) << idx).sum()
-}
-
-fn get_dependent_gates(&self, name: &'a str) -> HashSet<&'a str> {
-    match self.gates.get(name) {
-        Some(Gate::And(a, b)) | Some(Gate::Or(a, b )) | Some(Gate::Xor(a, b)) => 
-        HashSet::from([name]).union(&self.get_dependent_gates(a)).cloned().collect::<HashSet<_>>().union(&self.get_dependent_gates(b)).cloned().collect(),
-        Some(Gate::Value(_)) => HashSet::from([name]),
-        None => HashSet::new(),
+    fn eval(&mut self) -> usize {
+        (0..self.output_gates).map(|idx| self.eval_output_gate(idx, true) << idx).sum()
     }
-}
 
-fn is_loop_free(&self, name: &str, previous: &HashSet<&str>) -> bool {
-    match self.gates.get(name) {
-        None | Some(Gate::Value(_)) => true,
-        Some(Gate::And(a, b)) | Some(Gate::Or(a, b )) | Some(Gate::Xor(a, b)) => {
-            if previous.contains(a) || previous.contains(b) {
-                return false;
-            }
-            let mut previous = previous.clone();
-            previous.insert(a);
-            previous.insert(b);
-            self.is_loop_free(a, &previous) && self.is_loop_free(b, &previous)
+    fn get_dependent_gates(&self, name: &'a str) -> HashSet<&'a str> {
+        match self.gates.get(name) {
+            Some(Gate::And(a, b)) | Some(Gate::Or(a, b )) | Some(Gate::Xor(a, b)) => 
+            HashSet::from([name]).union(&self.get_dependent_gates(a)).cloned().collect::<HashSet<_>>().union(&self.get_dependent_gates(b)).cloned().collect(),
+            Some(Gate::Value(_)) => HashSet::from([name]),
+            None => HashSet::new(),
         }
     }
-}
+
+    fn is_loop_free(&self, name: &str, previous: &HashSet<&str>) -> bool {
+        match self.gates.get(name) {
+            None | Some(Gate::Value(_)) => true,
+            Some(Gate::And(a, b)) | Some(Gate::Or(a, b )) | Some(Gate::Xor(a, b)) => {
+                if previous.contains(a) || previous.contains(b) {
+                    return false;
+                }
+                let mut previous = previous.clone();
+                previous.insert(a);
+                previous.insert(b);
+                self.is_loop_free(a, &previous) && self.is_loop_free(b, &previous)
+            }
+        }
+    }
     fn output_gate(idx: usize) -> String {
         if idx < 10 {
             format!("z0{idx}")
@@ -193,17 +193,21 @@ fn is_loop_free(&self, name: &str, previous: &HashSet<&str>) -> bool {
         }
     }
 
+    /// Determines if the `idx`th least significant bit of z can be traced to input bits (x and y)
+    /// on all paths (returning `true`), or if they form a loop (returning `false`).
     fn output_is_loop_free(&self, idx: usize) -> bool {
         self.is_loop_free(&Self::output_gate(idx)[..], &HashSet::new())
     }
 
+    /// Checks if the rightmost `z_idx` bits of z behave like an adder. Returns `None`, if they do,
+    /// and `Some(idx)` otherwise, where `idx` is the first bit (from the right), which differs.
     fn check_until(&mut self, z_idx: usize) -> Option<usize> {
         let tests_0 = [(0, 0), (0, 1), (1, 0), (1, 1)];
         if tests_0.iter().any(|(l, r)| {
             self.x = *l;
             self.y = *r;
             !self.output_is_loop_free(0) ||
-             self.eval_output_gate(0, false) != l ^ r
+            self.eval_output_gate(0, false) != l ^ r
         }) {
             return Some(0);
         }
@@ -226,6 +230,9 @@ fn is_loop_free(&self, name: &str, previous: &HashSet<&str>) -> bool {
         })
     }
 
+    /// Try swapping all combinations of two gates, where at least one of them is contained in
+    /// `must_include` and none of them in `swapped_before` and determine if their swap results in
+    /// the rightmost `z_idx` bits of z are correct. Returns an unsorted Vec of all such pairs.
     fn try_swaps(&'a mut self, z_idx: usize, must_include: &[&'a str], swapped_before: &[&'a str]) -> Vec<Vec<String>> {
         let mut res = Vec::new();
         // We need to clone these so the borrow checker won't complain about concurrent borrows in the
@@ -237,7 +244,7 @@ fn is_loop_free(&self, name: &str, previous: &HashSet<&str>) -> bool {
             if swapped_before.contains(&gate_1) {
                 continue;
             }
-            // The unwrap()s below are safe because the constructor made shure all gates exist.
+            // The unwrap()s below are safe because the constructor made sure all gates exist.
             let inputs_1 = *self.gates.get(gate_1).unwrap();
             for &gate_2 in all_inputs.iter().filter(|&&gate_2| 
                 gate_2 != gate_1 && 
@@ -256,7 +263,10 @@ fn is_loop_free(&self, name: &str, previous: &HashSet<&str>) -> bool {
         res
     }
 
-fn swap_gates(&mut self, swapped_before: &[String]) -> Vec<String> {
+    /// Find the necessary (up to 8) swaps to turn this device into a binary adder.
+    /// `swapped_before` contains the swaps already established (this should be an empty array at
+    /// first). Returns a `Vec` of the affected gates, sorted alphabetically.
+    fn swap_gates(&mut self, swapped_before: &[String]) -> Vec<String> {
         let mut swaps_performed = swapped_before.to_vec();
         loop {
             if let Some(next_error) = self.check_until(self.output_gates-2) {
@@ -266,7 +276,7 @@ fn swap_gates(&mut self, swapped_before: &[String]) -> Vec<String> {
                 let mut next = self.clone();
                 let new_possible_swaps = next.try_swaps(next_error, &must_include, &swapped_before);
                 match new_possible_swaps.len() {
-                    // The unwrap()s below are safe because the constructor made shure all gates exist.
+                    // The unwrap()s below are safe because the constructor made sure all gates exist.
                     0 => return Vec::new(),     // If we found no solution, return early
                     1 => {
                         // We found one solution. Continue with it.
@@ -280,8 +290,8 @@ fn swap_gates(&mut self, swapped_before: &[String]) -> Vec<String> {
                         }
                     },
                     _ => {
-                        // We found more than one solution. Spawn a new Device for each and try
-                        // them all.
+                        // We found more than one solution. 
+                        // Spawn a new Device for each and try them all.
                         for swaps in new_possible_swaps {
                             if swaps.len() + swaps_performed.len() > 8 {
                                 continue;
